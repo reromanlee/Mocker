@@ -9,9 +9,29 @@
 
 `[Composite]` – Base class that contains all the modules and manages their creation, DI and lifecycle with disposal.
 
-`[Node]` – Interface that contains submodules together in a single group and acts as a mediator for pretty API. Can be nested into another recursively.
+`[Node]` – Class that contains submodules together in a single group and acts as a mediator for pretty API. Can be nested into another recursively.
 
 `[Component]` – Interface that is being mocked at runtime by instantiated concrete class that both inherits and targets it via implementor attribute.
+
+`[assembly: MockerRoot]` – Marks the one assembly where the selection enums and the wiring are generated. See Assemblies below.
+
+### Assemblies
+
+An implementor has to reference the assembly that declares the component it implements. That assembly can therefore never reference the implementors back, and can never see them. Only a third assembly, downstream of both, sees everything at once — so Mocker expects three kinds of assembly.
+
+| Assembly | Declares | References | Generated into it |
+| --- | --- | --- | --- |
+| API | `[Composite]`, `[Node]`, `[Component]` | Mocker | The composite API |
+| Implementor | `[Implementor]` | Mocker, API | Nothing but its own exports |
+| Root | `[assembly: MockerRoot]` | Mocker, API, every implementor | The selection enums and the wiring |
+
+There can be any number of implementor assemblies, and each of them can hold one implementor or many. None of them know about each other. An implementor assembly excluded by its platform settings or define constraints simply drops out of the reference set, and its implementors drop out of the enums with it.
+
+A composite, its nodes and its components all live in the same assembly, because `[Node("Ads", typeof(Tools))]` needs `Tools` to be resolvable.
+
+Every assembly publishes what it declares as assembly level attributes, and the root reads them back off its references, so nothing has to be named or configured anywhere.
+
+Small projects can put all three in one assembly. Mark it with `[assembly: MockerRoot]` either way — the enums are only ever generated where that marker is, so that they cannot be generated twice.
 
 ### Inject dependencies
 
@@ -50,22 +70,31 @@ scopeInstance.Dispose();
 
 ```csharp
 [Composite]
-public partial sealed class Tools {
+public sealed partial class Tools {
     // Generated nodes and components.
 }
 
 // Tools.Ads (node)
 [Node("Ads", typeof(Tools))]
-public partial interface IAds { }
+public partial class Ads { }
 
 // Tools.Ads.Extra (node)
-[Node("Extra", typeof(IAds))]
-public partial interface IExtra { }
+[Node("Extra", typeof(Ads))]
+public partial class Extra { }
 
 // Tools.Ads.Interstitial (mockable interface)
-[Component(typeof(IAds))]
+[Component("Interstitial", typeof(Ads))]
 public partial interface IInterstitial { }
 
 [Implementor(typeof(IInterstitial))]
 public class AdMob : IInterstitial { }
+
+// In the root assembly, which references the API and every implementor.
+[assembly: MockerRoot]
+
+// Generated there, one per component, listing every implementor that was found.
+public enum InterstitialImplementor {
+    None = 0,
+    AdMob
+}
 ```
