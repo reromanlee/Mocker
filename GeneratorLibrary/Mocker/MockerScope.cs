@@ -13,6 +13,7 @@ namespace GeneratorLibrary.Mocker
     {
         private readonly Dictionary<string, string> _pathsByFullName = new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly Dictionary<string, List<MockerTarget>> _implementorsByComponent = new Dictionary<string, List<MockerTarget>>(StringComparer.Ordinal);
+        private readonly Dictionary<string, bool> _initializationByComponent = new Dictionary<string, bool>(StringComparer.Ordinal);
 
         public MockerScope(MockerTarget composite, ImmutableArray<MockerTarget> all, MockerTree tree)
         {
@@ -183,6 +184,57 @@ namespace GeneratorLibrary.Mocker
             return _implementorsByComponent.TryGetValue(component.Type.FullName, out implementors) ? implementors : new List<MockerTarget>();
         }
 
+        /// <summary>
+        /// Whether anything under a component actually has work to do before use: its own implementor,
+        /// or any component that implementor takes. When nothing does, the generated initializer can be
+        /// a plain method returning a completed task instead of an async one that never awaits.
+        /// </summary>
+        /// <param name="component">Component to check.</param>
+        /// <returns>True when something in its chain initializes asynchronously.</returns>
+        public bool NeedsInitialization(MockerTarget component)
+        {
+            bool needed;
+
+            if (_initializationByComponent.TryGetValue(component.Type.FullName, out needed))
+            {
+                return needed;
+            }
+
+            // Assume no while walking, so a loop answers rather than recurring forever. A real loop is
+            // reported separately as a cycle, and construction fails before initialization is reached.
+            _initializationByComponent[component.Type.FullName] = false;
+
+            foreach (MockerTarget implementor in GetImplementors(component))
+            {
+                if (implementor.Details.IsAsyncInitializable)
+                {
+                    needed = true;
+
+                    break;
+                }
+
+                foreach (string parameterType in implementor.Details.ParameterTypes)
+                {
+                    MockerTarget dependency;
+
+                    if (TryGetComponent(parameterType, out dependency) && NeedsInitialization(dependency))
+                    {
+                        needed = true;
+
+                        break;
+                    }
+                }
+
+                if (needed)
+                {
+                    break;
+                }
+            }
+
+            _initializationByComponent[component.Type.FullName] = needed;
+
+            return needed;
+        }
         /// <summary>
         /// Finds the component a constructor parameter refers to, when it refers to one in this scope.
         /// </summary>

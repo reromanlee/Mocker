@@ -77,7 +77,11 @@ namespace GeneratorLibrary.Mocker
                 foreach (MockerTarget component in scope.Components)
                 {
                     emitter.Line($"private {ScriptNames.Qualified(component.Type.FullName)} {scope.GetFieldId(component)};");
-                    emitter.Line($"private {Task} _init{scope.GetFieldId(component)};");
+
+                    if (scope.NeedsInitialization(component))
+                    {
+                        emitter.Line($"private {Task} _init{scope.GetFieldId(component)};");
+                    }
                 }
 
                 emitter.Line();
@@ -110,6 +114,7 @@ namespace GeneratorLibrary.Mocker
                     WriteComponentInitializer(emitter, scope, component);
                 }
 
+                WriteRelease(emitter, scope);
                 WriteResolveGuards(emitter);
             }
         }
@@ -237,6 +242,18 @@ namespace GeneratorLibrary.Mocker
 
             emitter.Line();
 
+            if (!scope.NeedsInitialization(component))
+            {
+                emitter.Line("/// <summary>Nothing under this initializes, so there is nothing to wait for.</summary>");
+
+                using (emitter.Block($"public {Task} Initialize{member}Async({Token} cancellationToken)"))
+                {
+                    emitter.Line($"return {Task}.CompletedTask;");
+                }
+
+                return;
+            }
+
             using (emitter.Block($"public {Task} Initialize{member}Async({Token} cancellationToken)"))
             {
                 using (emitter.Block($"if (_init{field} == null)"))
@@ -283,6 +300,35 @@ namespace GeneratorLibrary.Mocker
             }
         }
 
+        private static void WriteRelease(ScriptEmitter emitter, MockerScope scope)
+        {
+            emitter.Line();
+            emitter.Line("/// <summary>Drops every reference held here, so disposing releases what was built even");
+            emitter.Line("/// if something is still holding the composite itself.</summary>");
+
+            using (emitter.Block("public void Release()"))
+            {
+                emitter.Line("_created.Clear();");
+
+                foreach (MockerTarget node in scope.Branches)
+                {
+                    if (node.Role == MockerRole.Node)
+                    {
+                        emitter.Line($"{scope.GetFieldId(node)} = null;");
+                    }
+                }
+
+                foreach (MockerTarget component in scope.Components)
+                {
+                    emitter.Line($"{scope.GetFieldId(component)} = null;");
+
+                    if (scope.NeedsInitialization(component))
+                    {
+                        emitter.Line($"_init{scope.GetFieldId(component)} = null;");
+                    }
+                }
+            }
+        }
         private static void WriteResolveGuards(ScriptEmitter emitter)
         {
             emitter.Line();
@@ -387,6 +433,11 @@ namespace GeneratorLibrary.Mocker
 
                     foreach (MockerTarget component in scope.Components)
                     {
+                        if (!scope.NeedsInitialization(component))
+                        {
+                            continue;
+                        }
+
                         string local = "start" + scope.GetMemberId(component);
 
                         started.Add(local);
@@ -468,6 +519,8 @@ namespace GeneratorLibrary.Mocker
 
                 emitter.Line();
                 emitter.Line("_cancellation.Dispose();");
+                emitter.Line("_factory.Release();");
+                emitter.Line("ReleaseChildren();");
                 emitter.Line("OnDisposed();");
                 emitter.Line();
 
