@@ -2,6 +2,7 @@ using System;
 
 namespace reromanlee.Mocker
 {
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
     public class NodeAttribute : Attribute
     {
         public readonly string Name;

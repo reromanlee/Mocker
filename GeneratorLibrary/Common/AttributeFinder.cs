@@ -11,18 +11,19 @@ namespace GeneratorLibrary.Common
     public static class AttributeFinder
     {
         /// <summary>
-        /// Finds all types marked with the attribute and converts each one with a custom transform.
+        /// Finds all types marked with the attribute and converts each one with a custom transform,
+        /// which is how the arguments written on the attribute are read.
         /// </summary>
         /// <typeparam name="T">Cacheable value the transform produces.</typeparam>
         /// <param name="context">Context the search runs in.</param>
-        /// <param name="attributeMetadataName">Full metadata name of the attribute, such as "reromanlee.Mocker.CompositeAttribute".</param>
+        /// <param name="attributeMetadataName">Full metadata name of the attribute, such as "reromanlee.Mocker.NodeAttribute".</param>
         /// <param name="transform">Reads what generation needs off every match.</param>
         /// <returns>Provider that only re-runs for the types that actually changed.</returns>
         public static IncrementalValuesProvider<T> FindAllByAttribute<T>(this IncrementalGeneratorInitializationContext context, string attributeMetadataName, Func<GeneratorAttributeSyntaxContext, CancellationToken, T> transform)
         {
             return context.SyntaxProvider.ForAttributeWithMetadataName(
                 attributeMetadataName,
-                predicate: (node, _) => node is ClassDeclarationSyntax,
+                predicate: (node, _) => node is TypeDeclarationSyntax,
                 transform: transform);
         }
 
@@ -34,7 +35,7 @@ namespace GeneratorLibrary.Common
         /// <returns>Provider of every marked type, each one knowing the assembly it belongs to.</returns>
         public static IncrementalValuesProvider<TypeTarget> FindAllByAttribute(this IncrementalGeneratorInitializationContext context, string attributeMetadataName)
         {
-            return context.FindAllByAttribute(attributeMetadataName, (attributeContext, _) => TypeTarget.From((INamedTypeSymbol)attributeContext.TargetSymbol));
+            return context.FindAllByAttribute(attributeMetadataName, (attributeContext, _) => TypeTarget.From(attributeContext.TargetSymbol as INamedTypeSymbol));
         }
 
         /// <summary>

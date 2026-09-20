@@ -8,27 +8,40 @@ namespace GeneratorLibrary.Common
     /// </summary>
     public readonly struct TypeTarget : IEquatable<TypeTarget>
     {
+        private readonly string _assemblyName;
+        private readonly string _namespace;
+        private readonly string _name;
+
         public TypeTarget(string assemblyName, string namespaceName, string name)
         {
-            AssemblyName = assemblyName ?? string.Empty;
-            Namespace = namespaceName ?? string.Empty;
-            Name = name ?? string.Empty;
+            _assemblyName = assemblyName;
+            _namespace = namespaceName;
+            _name = name;
         }
 
         /// <summary>
         /// Assembly that declares the type, which is also the assembly its generated script is created in.
         /// </summary>
-        public string AssemblyName { get; }
+        public string AssemblyName
+        {
+            get { return _assemblyName ?? string.Empty; }
+        }
 
         /// <summary>
         /// Namespace of the type, or an empty string when it sits in the global namespace.
         /// </summary>
-        public string Namespace { get; }
+        public string Namespace
+        {
+            get { return _namespace ?? string.Empty; }
+        }
 
         /// <summary>
         /// Name of the type without its namespace.
         /// </summary>
-        public string Name { get; }
+        public string Name
+        {
+            get { return _name ?? string.Empty; }
+        }
 
         /// <summary>
         /// Whether the type sits in a namespace, so generated code knows if it needs a namespace block.
@@ -39,7 +52,15 @@ namespace GeneratorLibrary.Common
         }
 
         /// <summary>
-        /// Name of the type including its namespace, used to give its generated script a unique name.
+        /// Whether a type was found at all, so a missing or misspelled reference can be told apart from a real one.
+        /// </summary>
+        public bool IsEmpty
+        {
+            get { return Name.Length == 0; }
+        }
+
+        /// <summary>
+        /// Name of the type including its namespace. Used to link attributes to each other and to name scripts.
         /// </summary>
         public string FullName
         {
@@ -49,10 +70,15 @@ namespace GeneratorLibrary.Common
         /// <summary>
         /// Reads the values needed for generation off the symbol the attribute was found on.
         /// </summary>
-        /// <param name="symbol">Type the attribute is applied to.</param>
-        /// <returns>Cacheable description of the type.</returns>
+        /// <param name="symbol">Type the attribute is applied to, or that a typeof() argument points at.</param>
+        /// <returns>Cacheable description of the type, or an empty target when there is no symbol.</returns>
         public static TypeTarget From(INamedTypeSymbol symbol)
         {
+            if (symbol == null)
+            {
+                return default(TypeTarget);
+            }
+
             IAssemblySymbol assembly = symbol.ContainingAssembly;
             INamespaceSymbol containingNamespace = symbol.ContainingNamespace;
             bool isGlobal = containingNamespace == null || containingNamespace.IsGlobalNamespace;

@@ -2,7 +2,8 @@ using System;
 
 namespace reromanlee.Mocker
 {
-    public class ComponentAttribute
+    [AttributeUsage(AttributeTargets.Interface, AllowMultiple = false)]
+    public class ComponentAttribute : Attribute
     {
         public readonly string Name;
         public readonly Type ParentType;

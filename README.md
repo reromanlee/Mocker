@@ -9,7 +9,7 @@
 
 `[Composite]` – Base class that contains all the modules and manages their creation, DI and lifecycle with disposal.
 
-`[Node]` – Interface that contains submodules together in a single group and acts as a mediator for pretty API. Can be nested into another recursively.
+`[Node]` – Class that contains submodules together in a single group and acts as a mediator for pretty API. Can be nested into another recursively.
 
 `[Component]` – Interface that is being mocked at runtime by instantiated concrete class that both inherits and targets it via implementor attribute.
 
@@ -50,20 +50,20 @@ scopeInstance.Dispose();
 
 ```csharp
 [Composite]
-public partial sealed class Tools {
+public sealed partial class Tools {
     // Generated nodes and components.
 }
 
 // Tools.Ads (node)
 [Node("Ads", typeof(Tools))]
-public partial interface IAds { }
+public partial class Ads { }
 
 // Tools.Ads.Extra (node)
-[Node("Extra", typeof(IAds))]
-public partial interface IExtra { }
+[Node("Extra", typeof(Ads))]
+public partial class Extra { }
 
 // Tools.Ads.Interstitial (mockable interface)
-[Component(typeof(IAds))]
+[Component("Interstitial", typeof(Ads))]
 public partial interface IInterstitial { }
 
 [Implementor(typeof(IInterstitial))]

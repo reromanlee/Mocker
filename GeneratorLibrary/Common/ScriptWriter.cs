@@ -48,6 +48,22 @@ namespace GeneratorLibrary.Common
             context.AddScript(target.FullName, scriptContent);
         }
 
+        /// <summary>
+        /// Escapes text that is being written into a generated string literal, so a quote or a backslash
+        /// in a name written by hand cannot break the generated script.
+        /// </summary>
+        /// <param name="text">Text to place inside a literal.</param>
+        /// <returns>The text, safe to put between quotes.</returns>
+        public static string EscapeLiteral(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return string.Empty;
+            }
+
+            return text.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        }
+
         private static string GetFileName(string scriptName)
         {
             string name = scriptName == null ? string.Empty : scriptName.Trim();
