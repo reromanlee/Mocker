@@ -45,6 +45,41 @@ With more than one root, say which composites each one owns:
 
 A root that names nothing takes every composite it can see. Two roots that can both see the same composite would each generate its enums, which stays invisible until something references both roots and then fails as a type collision far from its cause. Naming the composites rules that out, and a root that names something it cannot see is reported rather than quietly generating nothing.
 
+### Where the root marker goes
+
+One marker per assembly, naming however many composites that assembly owns. Two markers in one assembly is a compile error, `CS0579: Duplicate 'MockerRoot' attribute`.
+
+```csharp
+[assembly: MockerRoot(typeof(MonetizationService), typeof(UserService))]
+```
+
+While the implementors sit in the same assembly as the composite, the marker sits there with them. Naming the composites is optional here, since there is nothing else for the root to see.
+
+```csharp
+using reromanlee.Mocker;
+
+[assembly: MockerRoot(typeof(MonetizationService))]
+
+[Composite]
+public sealed partial class MonetizationService { }
+
+[Component("Interstitial", typeof(MonetizationService))]
+public partial interface IInterstitial { }
+
+[Implementor(typeof(IInterstitial))]
+public class AdMob : IInterstitial { }
+```
+
+Once the implementors move into their own assemblies, the marker cannot stay next to the composite. The assembly declaring the composite is the one implementors reference, so it can never reference them back and can never see them. The marker moves to a root assembly downstream of both and reaches the composite through an assembly reference.
+
+| Assembly | Holds | References |
+| --- | --- | --- |
+| `MonetizationApi` | `[Composite] MonetizationService`, its nodes and components | Mocker |
+| `AdMob` | `[Implementor] AdMob` | Mocker, `MonetizationApi` |
+| `Roots` | `[assembly: MockerRoot(typeof(MonetizationService))]` | Mocker, `MonetizationApi`, `AdMob` |
+
+An assembly level attribute has to come before every type in its file, or the compiler stops at `CS1730` before Mocker sees anything. Giving the marker a file of its own avoids the question.
+
 ### Inject dependencies
 
 Register a config file or something that would be used in the scope.
