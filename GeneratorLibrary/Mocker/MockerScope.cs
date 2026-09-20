@@ -107,7 +107,29 @@ namespace GeneratorLibrary.Mocker
         /// </summary>
         public string GetId(MockerTarget target)
         {
-            return GetPath(target).Replace(".", string.Empty);
+            return GetPath(target).Replace(".", "_");
+        }
+
+        /// <summary>
+        /// The path without the composite at the front, used to name members of that composite's factory,
+        /// where the composite name would only repeat itself.
+        /// </summary>
+        public string GetMemberId(MockerTarget target)
+        {
+            string path = GetPath(target);
+            int firstSeparator = path.IndexOf('.');
+
+            return firstSeparator < 0 ? path.Replace(".", "_") : path.Substring(firstSeparator + 1).Replace(".", "_");
+        }
+
+        /// <summary>
+        /// The member name a generated field uses, which is the member id in the repository's field style.
+        /// </summary>
+        public string GetFieldId(MockerTarget target)
+        {
+            string id = GetMemberId(target);
+
+            return id.Length == 0 ? "_value" : "_" + char.ToLowerInvariant(id[0]) + id.Substring(1);
         }
 
         /// <summary>

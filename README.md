@@ -1,7 +1,6 @@
 ### Mocker for Unity
 
-> [!WARNING]
-> This is a work-in-progress Unity package.
+Create organized service composites and mock their components in Unity. Generates pretty API and automatic DI, powered by Incremental Source Generator.
 
 ### Attributes
 
