@@ -66,6 +66,33 @@ namespace GeneratorLibrary.Mocker
             Category);
 
         /// <summary>
+        /// An implementor asked for a component belonging to a different composite.
+        /// </summary>
+        public static readonly DiagnosticDescriptor ForeignComponent = DiagnosticReporter.CreateError(
+            "MOCK012",
+            "Dependency belongs to another composite",
+            "'{0}' asks for '{1}', which belongs to composite '{2}'. Composites do not share instances, so pass it through Dependencies instead.",
+            Category);
+
+        /// <summary>
+        /// A component has a member no do-nothing implementation can satisfy.
+        /// </summary>
+        public static readonly DiagnosticDescriptor NotMockable = DiagnosticReporter.CreateError(
+            "MOCK011",
+            "Component cannot be mocked",
+            "No mock can be generated for this component because of member '{0}'. Give it an implementor of its own, or change the member so that doing nothing is a valid answer.",
+            Category);
+
+        /// <summary>
+        /// A composite was not declared abstract, so no runnable subclass can be generated for it.
+        /// </summary>
+        public static readonly DiagnosticDescriptor CompositeNotAbstract = DiagnosticReporter.CreateError(
+            "MOCK010",
+            "Composite must be abstract",
+            "Composite '{0}' must be declared abstract. The assembly that declares it cannot see the implementors, so the runnable subclass is generated in the root instead.",
+            Category);
+
+        /// <summary>
         /// A root named something that is not a composite it can see.
         /// </summary>
         public static readonly DiagnosticDescriptor UnknownRootComposite = DiagnosticReporter.CreateError(

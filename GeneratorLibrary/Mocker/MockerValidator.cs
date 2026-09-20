@@ -24,6 +24,7 @@ namespace GeneratorLibrary.Mocker
             foreach (MockerTarget target in local)
             {
                 ValidatePartial(context, target);
+                ValidateAbstract(context, target);
                 ValidateReservedName(context, target);
                 ValidateParent(context, target, tree);
             }
@@ -69,6 +70,16 @@ namespace GeneratorLibrary.Mocker
             }
 
             context.Report(MockerDiagnostics.NotPartial, target.Location, target.Role, target.Type.Name);
+        }
+
+        private static void ValidateAbstract(SourceProductionContext context, MockerTarget target)
+        {
+            if (target.Role != MockerRole.Composite || target.IsAbstract)
+            {
+                return;
+            }
+
+            context.Report(MockerDiagnostics.CompositeNotAbstract, target.Location, target.Type.Name);
         }
 
         private static void ValidateReservedName(SourceProductionContext context, MockerTarget target)
