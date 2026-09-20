@@ -18,6 +18,12 @@ namespace GeneratorLibrary.Mocker
         private const string NameSuffix = "Implementor";
 
         /// <summary>
+        /// Member every enum starts with, so that the default value means nothing was selected rather
+        /// than whichever implementor happens to sort first.
+        /// </summary>
+        public const string NoneMember = "None";
+
+        /// <summary>
         /// Writes an enum for every component that belongs to a composite.
         /// </summary>
         /// <param name="context">Context the scripts are added to.</param>
@@ -71,6 +77,7 @@ namespace GeneratorLibrary.Mocker
 
             script.AppendLine($"{indent}public enum {TrimInterfacePrefix(component.Type.Name)}{NameSuffix}");
             script.AppendLine($"{indent}{{");
+            script.AppendLine($"{indent}    {NoneMember} = 0{(implementorNames.Count == 0 ? string.Empty : ",")}");
 
             for (int index = 0; index < implementorNames.Count; index++)
             {

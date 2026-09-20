@@ -1,5 +1,6 @@
 ﻿using GeneratorLibrary.Common;
 using Microsoft.CodeAnalysis;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 
@@ -23,6 +24,7 @@ namespace GeneratorLibrary.Mocker
             foreach (MockerTarget target in local)
             {
                 ValidatePartial(context, target);
+                ValidateReservedName(context, target);
                 ValidateParent(context, target, tree);
             }
 
@@ -37,6 +39,16 @@ namespace GeneratorLibrary.Mocker
             }
 
             context.Report(MockerDiagnostics.NotPartial, target.Location, target.Role, target.Type.Name);
+        }
+
+        private static void ValidateReservedName(SourceProductionContext context, MockerTarget target)
+        {
+            if (target.Role != MockerRole.Implementor || !string.Equals(target.Name, MockerEnumWriter.NoneMember, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            context.Report(MockerDiagnostics.ReservedName, target.Location, target.Type.Name, target.Name);
         }
 
         private static void ValidateParent(SourceProductionContext context, MockerTarget target, MockerTree tree)

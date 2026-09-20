@@ -66,6 +66,15 @@ namespace GeneratorLibrary.Mocker
             Category);
 
         /// <summary>
+        /// An implementor claims the name the generated enum keeps for its unselected value.
+        /// </summary>
+        public static readonly DiagnosticDescriptor ReservedName = DiagnosticReporter.CreateError(
+            "MOCK008",
+            "Name is reserved",
+            "Implementor '{0}' cannot be named '{1}', because the generated enum keeps that name for its unselected value",
+            Category);
+
+        /// <summary>
         /// An implementor was pointed at an interface it does not actually implement.
         /// </summary>
         public static readonly DiagnosticDescriptor NotImplemented = DiagnosticReporter.CreateError(
