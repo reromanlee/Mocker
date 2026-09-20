@@ -42,6 +42,31 @@ namespace GeneratorLibrary.Common
             return GetArgument(attribute, index).Value as INamedTypeSymbol;
         }
 
+        /// <summary>
+        /// Reads an array of type arguments, such as the composites a root says it owns.
+        /// </summary>
+        /// <param name="attribute">Attribute the argument was written on.</param>
+        /// <param name="index">Position of the argument in the constructor.</param>
+        /// <returns>The types it points at, or nothing when the argument is missing or empty.</returns>
+        public static ImmutableArray<TypeTarget> GetTypeArrayArgument(this AttributeData attribute, int index)
+        {
+            TypedConstant argument = GetArgument(attribute, index);
+
+            if (argument.Kind != TypedConstantKind.Array || argument.Values.IsDefaultOrEmpty)
+            {
+                return ImmutableArray<TypeTarget>.Empty;
+            }
+
+            ImmutableArray<TypeTarget>.Builder types = ImmutableArray.CreateBuilder<TypeTarget>(argument.Values.Length);
+
+            foreach (TypedConstant value in argument.Values)
+            {
+                types.Add(TypeTarget.From(value.Value as INamedTypeSymbol));
+            }
+
+            return types.ToImmutable();
+        }
+
         private static TypedConstant GetArgument(AttributeData attribute, int index)
         {
             if (attribute == null)

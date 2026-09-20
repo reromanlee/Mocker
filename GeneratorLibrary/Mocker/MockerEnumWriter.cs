@@ -29,7 +29,8 @@ namespace GeneratorLibrary.Mocker
         /// <param name="context">Context the scripts are added to.</param>
         /// <param name="all">Everything known, declared here and published by referenced assemblies.</param>
         /// <param name="tree">Resolved parent links.</param>
-        public static void Write(SourceProductionContext context, ImmutableArray<MockerTarget> all, MockerTree tree)
+        /// <param name="imports">The root marker, which says which composites this assembly owns.</param>
+        public static void Write(SourceProductionContext context, ImmutableArray<MockerTarget> all, MockerTree tree, MockerImports imports)
         {
             foreach (MockerTarget component in all)
             {
@@ -37,6 +38,11 @@ namespace GeneratorLibrary.Mocker
                 string rootFullName;
 
                 if (component.Role != MockerRole.Component || tree.Resolve(component, out path, out rootFullName) != MockerStatus.Resolved)
+                {
+                    continue;
+                }
+
+                if (!imports.Owns(rootFullName))
                 {
                     continue;
                 }

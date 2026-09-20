@@ -28,17 +28,19 @@ namespace GeneratorLibrary.Mocker
 
             context.RegisterSourceOutput(local.Combine(published), (productionContext, batch) =>
             {
+                MockerImports imports = batch.Right;
                 ImmutableArray<MockerTarget> localTargets = batch.Left;
-                ImmutableArray<MockerTarget> allTargets = localTargets.AddRange(batch.Right.Targets);
+                ImmutableArray<MockerTarget> allTargets = localTargets.AddRange(imports.Targets);
 
                 MockerTree tree = new MockerTree(allTargets);
 
                 MockerValidator.Validate(productionContext, localTargets, allTargets, tree);
                 MockerExportWriter.Write(productionContext, localTargets);
 
-                if (batch.Right.IsRoot)
+                if (imports.IsRoot)
                 {
-                    MockerEnumWriter.Write(productionContext, allTargets, tree);
+                    MockerValidator.ValidateRoot(productionContext, imports, allTargets);
+                    MockerEnumWriter.Write(productionContext, allTargets, tree, imports);
                 }
 
                 foreach (MockerTarget target in localTargets)
@@ -69,7 +71,24 @@ namespace GeneratorLibrary.Mocker
 
             published.Sort((left, right) => string.CompareOrdinal(left.Type.FullName, right.Type.FullName));
 
-            return new MockerImports(published.ToImmutableArray(), AssemblyScanner.HasAssemblyAttribute(compilation, MockerAttributes.Root));
+            AttributeData root = AssemblyScanner.FindAssemblyAttribute(compilation, MockerAttributes.Root);
+
+            if (root == null)
+            {
+                return new MockerImports(published.ToImmutableArray(), false, ImmutableArray<string>.Empty, default(ScriptLocation));
+            }
+
+            ImmutableArray<string>.Builder composites = ImmutableArray.CreateBuilder<string>();
+
+            foreach (TypeTarget composite in root.GetTypeArrayArgument(0))
+            {
+                if (!composite.IsEmpty)
+                {
+                    composites.Add(composite.FullName);
+                }
+            }
+
+            return new MockerImports(published.ToImmutableArray(), true, composites.ToImmutable(), ScriptLocation.From(root.ApplicationSyntaxReference));
         }
 
         private static string BuildScript(MockerTarget composite, ImmutableArray<MockerTarget> all, MockerTree tree)

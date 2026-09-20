@@ -66,6 +66,15 @@ namespace GeneratorLibrary.Mocker
             Category);
 
         /// <summary>
+        /// A root named something that is not a composite it can see.
+        /// </summary>
+        public static readonly DiagnosticDescriptor UnknownRootComposite = DiagnosticReporter.CreateError(
+            "MOCK009",
+            "Root names something that is not a composite",
+            "This root claims '{0}', which is not a composite it can see. Reference the assembly that declares it, or remove it.",
+            Category);
+
+        /// <summary>
         /// An implementor claims the name the generated enum keeps for its unselected value.
         /// </summary>
         public static readonly DiagnosticDescriptor ReservedName = DiagnosticReporter.CreateError(

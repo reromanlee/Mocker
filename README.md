@@ -13,7 +13,7 @@
 
 `[Component]` – Interface that is being mocked at runtime by instantiated concrete class that both inherits and targets it via implementor attribute.
 
-`[assembly: MockerRoot]` – Marks the one assembly where the selection enums and the wiring are generated. See Assemblies below.
+`[assembly: MockerRoot]` – Marks an assembly where the selection enums and the wiring are generated. Name the composites it owns to keep it to those. See Assemblies below.
 
 ### Assemblies
 
@@ -31,7 +31,19 @@ A composite, its nodes and its components all live in the same assembly, because
 
 Every assembly publishes what it declares as assembly level attributes, and the root reads them back off its references, so nothing has to be named or configured anywhere.
 
-Small projects can put all three in one assembly. Mark it with `[assembly: MockerRoot]` either way — the enums are only ever generated where that marker is, so that they cannot be generated twice.
+Small projects can put all three in one assembly. Mark it with `[assembly: MockerRoot]` either way, because the enums are only ever generated where that marker is.
+
+### Several composites
+
+Composites do not know about each other, so there can be as many as you like — one per service, each with its own API assembly and its own implementors. A single root that references all of them generates the enums for all of them.
+
+With more than one root, say which composites each one owns:
+
+```csharp
+[assembly: MockerRoot(typeof(Profile))]
+```
+
+A root that names nothing takes every composite it can see. Two roots that can both see the same composite would each generate its enums, which stays invisible until something references both roots and then fails as a type collision far from its cause. Naming the composites rules that out, and a root that names something it cannot see is reported rather than quietly generating nothing.
 
 ### Inject dependencies
 
