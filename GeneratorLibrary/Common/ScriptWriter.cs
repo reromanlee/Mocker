@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis.Text;
 using System;
 using System.Text;
 
-namespace GeneratorLibrary
+namespace GeneratorLibrary.Common
 {
     /// <summary>
     /// Turns a complete .cs file content into a single generated script that is added to the compilation.
@@ -25,7 +25,7 @@ namespace GeneratorLibrary
         }
 
         /// <summary>
-        /// Adds a generated script before the compilation is parsed, for content that never depends on user code, like attributes.
+        /// Adds a generated script before the compilation is parsed, for content that never depends on user code.
         /// </summary>
         /// <param name="context">Context the script is added to.</param>
         /// <param name="scriptName">Name of the script, with or without an extension. "Tools" becomes "Tools.g.cs".</param>
@@ -33,6 +33,19 @@ namespace GeneratorLibrary
         public static void AddScript(this IncrementalGeneratorPostInitializationContext context, string scriptName, string scriptContent)
         {
             context.AddSource(GetFileName(scriptName), GetSourceText(scriptContent));
+        }
+
+        /// <summary>
+        /// Adds a generated script next to the type it was generated for, named after that type.
+        /// The script is created in <see cref="TypeTarget.AssemblyName"/>, because a generator can only add
+        /// source to the assembly it is compiling, which is the assembly the attribute was found in.
+        /// </summary>
+        /// <param name="context">Context the script is added to.</param>
+        /// <param name="target">Type the script was generated for.</param>
+        /// <param name="scriptContent">Complete content of the .cs file, including usings and namespace.</param>
+        public static void AddLocalScript(this SourceProductionContext context, TypeTarget target, string scriptContent)
+        {
+            context.AddScript(target.FullName, scriptContent);
         }
 
         private static string GetFileName(string scriptName)
