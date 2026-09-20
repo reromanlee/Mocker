@@ -3,6 +3,8 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IsRoslynComponent>true</IsRoslynComponent>
+    <!-- RS2008 asks for analyzer release tracking files, which only matter when rules ship as a NuGet analyzer package. This one ships as a .dll inside a Unity package. -->
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
   </PropertyGroup>
   <ItemGroup>
 	<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.0">

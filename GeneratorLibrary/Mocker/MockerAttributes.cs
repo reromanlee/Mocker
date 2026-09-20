@@ -26,5 +26,15 @@
         /// Concrete class that implements a component and can be selected as its provider.
         /// </summary>
         public const string Implementor = AttributeNamespace + "ImplementorAttribute";
+
+        /// <summary>
+        /// Generated assembly level attribute that publishes one Mocker type to referencing assemblies.
+        /// </summary>
+        public const string Export = AttributeNamespace + "MockerExportAttribute";
+
+        /// <summary>
+        /// Hand written assembly level attribute marking the assembly where the wiring is generated.
+        /// </summary>
+        public const string Root = AttributeNamespace + "MockerRootAttribute";
     }
 }

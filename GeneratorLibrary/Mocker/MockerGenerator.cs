@@ -8,8 +8,10 @@ using System.Text;
 namespace GeneratorLibrary.Mocker
 {
     /// <summary>
-    /// Detects every Mocker attribute in the compiled assembly, resolves how they hang off each other,
-    /// and writes what it found into each composite as a test method.
+    /// Runs in every assembly that references Mocker and does whatever that assembly calls for: an assembly
+    /// holding implementors publishes them, an assembly holding a composite builds the API and the enums,
+    /// and an assembly holding neither generates nothing. The roles come from the attributes that are
+    /// actually there, so no assembly ever has to be named or configured.
     /// </summary>
     [Generator]
     public class MockerGenerator : IIncrementalGenerator
@@ -21,25 +23,56 @@ namespace GeneratorLibrary.Mocker
             IncrementalValuesProvider<MockerTarget> components = context.FindAllByAttribute(MockerAttributes.Component, MockerTarget.FromComponent);
             IncrementalValuesProvider<MockerTarget> implementors = context.FindAllByAttribute(MockerAttributes.Implementor, MockerTarget.FromImplementor);
 
-            IncrementalValueProvider<ImmutableArray<MockerTarget>> targets = ProviderExtensions.CollectAll(composites, nodes, components, implementors);
+            IncrementalValueProvider<ImmutableArray<MockerTarget>> local = ProviderExtensions.CollectAll(composites, nodes, components, implementors);
+            IncrementalValueProvider<MockerImports> published = context.CompilationProvider.Select((compilation, _) => ReadImports(compilation));
 
-            context.RegisterSourceOutput(targets, (productionContext, found) =>
+            context.RegisterSourceOutput(local.Combine(published), (productionContext, batch) =>
             {
-                MockerTree tree = new MockerTree(found);
+                ImmutableArray<MockerTarget> localTargets = batch.Left;
+                ImmutableArray<MockerTarget> allTargets = localTargets.AddRange(batch.Right.Targets);
 
-                foreach (MockerTarget target in found)
+                MockerTree tree = new MockerTree(allTargets);
+
+                MockerValidator.Validate(productionContext, localTargets, allTargets, tree);
+                MockerExportWriter.Write(productionContext, localTargets);
+
+                if (batch.Right.IsRoot)
                 {
-                    if (target.Role != MockerRole.Composite)
+                    MockerEnumWriter.Write(productionContext, allTargets, tree);
+                }
+
+                foreach (MockerTarget target in localTargets)
+                {
+                    if (target.Role != MockerRole.Composite || !target.IsPartial)
                     {
                         continue;
                     }
 
-                    productionContext.AddLocalScript(target.Type, BuildScript(target, found, tree));
+                    productionContext.AddLocalScript(target.Type, BuildScript(target, allTargets, tree));
                 }
             });
         }
 
-        private static string BuildScript(MockerTarget composite, ImmutableArray<MockerTarget> found, MockerTree tree)
+        private static MockerImports ReadImports(Compilation compilation)
+        {
+            List<MockerTarget> published = new List<MockerTarget>();
+
+            foreach (AttributeData attribute in AssemblyScanner.FindAssemblyAttributes(compilation, MockerAttributes.Export))
+            {
+                MockerTarget target;
+
+                if (MockerTarget.TryFromExport(attribute, out target))
+                {
+                    published.Add(target);
+                }
+            }
+
+            published.Sort((left, right) => string.CompareOrdinal(left.Type.FullName, right.Type.FullName));
+
+            return new MockerImports(published.ToImmutableArray(), AssemblyScanner.HasAssemblyAttribute(compilation, MockerAttributes.Root));
+        }
+
+        private static string BuildScript(MockerTarget composite, ImmutableArray<MockerTarget> all, MockerTree tree)
         {
             StringBuilder script = new StringBuilder();
             string indent = composite.Type.HasNamespace ? "    " : string.Empty;
@@ -58,7 +91,7 @@ namespace GeneratorLibrary.Mocker
             script.AppendLine($"{indent}    {{");
             script.AppendLine($"{indent}        UnityEngine.Debug.Log(\"{ScriptWriter.EscapeLiteral(composite.Name)} in {ScriptWriter.EscapeLiteral(composite.Type.AssemblyName)}:\");");
 
-            foreach (string line in BuildBranchLines(composite, found, tree))
+            foreach (string line in BuildBranchLines(composite, all, tree))
             {
                 script.AppendLine($"{indent}        UnityEngine.Debug.Log(\"  {ScriptWriter.EscapeLiteral(line)}\");");
             }
@@ -74,23 +107,31 @@ namespace GeneratorLibrary.Mocker
             return script.ToString();
         }
 
-        private static List<string> BuildBranchLines(MockerTarget composite, ImmutableArray<MockerTarget> found, MockerTree tree)
+        private static List<string> BuildBranchLines(MockerTarget composite, ImmutableArray<MockerTarget> all, MockerTree tree)
         {
             List<string> lines = new List<string>();
 
-            foreach (MockerTarget target in found)
+            foreach (MockerTarget target in all)
             {
                 if (target.Role == MockerRole.Composite)
                 {
                     continue;
                 }
 
-                if (!string.Equals(tree.GetRootFullName(target), composite.Type.FullName, StringComparison.Ordinal))
+                string path;
+                string rootFullName;
+
+                if (tree.Resolve(target, out path, out rootFullName) != MockerStatus.Resolved)
                 {
                     continue;
                 }
 
-                lines.Add($"{tree.GetPath(target)} = {target.Role} ({target.Type.Name})");
+                if (!string.Equals(rootFullName, composite.Type.FullName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                lines.Add($"{path} = {target.Role} ({target.Type.Name} from {target.Type.AssemblyName})");
             }
 
             lines.Sort(StringComparer.Ordinal);

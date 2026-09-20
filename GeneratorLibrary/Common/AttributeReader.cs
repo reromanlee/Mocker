@@ -28,7 +28,18 @@ namespace GeneratorLibrary.Common
         /// <returns>The type it points at, or an empty target when it is missing.</returns>
         public static TypeTarget GetTypeArgument(this AttributeData attribute, int index)
         {
-            return TypeTarget.From(GetArgument(attribute, index).Value as INamedTypeSymbol);
+            return TypeTarget.From(attribute.GetTypeSymbolArgument(index));
+        }
+
+        /// <summary>
+        /// Reads a type argument as the symbol itself, for checks that need more than its name.
+        /// </summary>
+        /// <param name="attribute">Attribute the argument was written on.</param>
+        /// <param name="index">Position of the argument in the constructor.</param>
+        /// <returns>The symbol it points at, or null when it is missing.</returns>
+        public static INamedTypeSymbol GetTypeSymbolArgument(this AttributeData attribute, int index)
+        {
+            return GetArgument(attribute, index).Value as INamedTypeSymbol;
         }
 
         private static TypedConstant GetArgument(AttributeData attribute, int index)

@@ -1,25 +1,32 @@
 ﻿using GeneratorLibrary.Common;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
+using System.Linq;
 using System.Threading;
 
 namespace GeneratorLibrary.Mocker
 {
     /// <summary>
-    /// One detected attribute, flattened into the values the tree is built from: what the type is,
-    /// the name it is exposed under, and the type it hangs off.
+    /// One detected attribute, flattened into the values the tree is built and checked from: what the type
+    /// is, the name it is exposed under, the type it hangs off, and where it was written.
     /// </summary>
     public readonly struct MockerTarget : IEquatable<MockerTarget>
     {
         private readonly string _name;
         private readonly string _parentFullName;
 
-        public MockerTarget(TypeTarget type, MockerRole role, string name, string parentFullName)
+        public MockerTarget(TypeTarget type, MockerRole role, string name, string parentFullName, ScriptLocation location, bool isPartial, bool implementsParent, bool isExternal)
         {
             Type = type;
             Role = role;
             _name = name;
             _parentFullName = parentFullName;
+            Location = location;
+            IsPartial = isPartial;
+            ImplementsParent = implementsParent;
+            IsExternal = isExternal;
         }
 
         /// <summary>
@@ -31,6 +38,28 @@ namespace GeneratorLibrary.Mocker
         /// What the type is within a composite.
         /// </summary>
         public MockerRole Role { get; }
+
+        /// <summary>
+        /// Where the attribute was written, so problems can be reported against it.
+        /// </summary>
+        public ScriptLocation Location { get; }
+
+        /// <summary>
+        /// Whether the type is declared partial, which it must be to receive generated code.
+        /// </summary>
+        public bool IsPartial { get; }
+
+        /// <summary>
+        /// For an implementor, whether it really implements the interface it was pointed at.
+        /// Always true for the other roles, which have nothing to implement.
+        /// </summary>
+        public bool ImplementsParent { get; }
+
+        /// <summary>
+        /// Whether this was published by another assembly rather than declared here. External targets are
+        /// not checked again, because the generator already checked them where they were written.
+        /// </summary>
+        public bool IsExternal { get; }
 
         /// <summary>
         /// Name this is exposed under in the generated API. Nodes and components take it from their
@@ -65,7 +94,7 @@ namespace GeneratorLibrary.Mocker
         {
             TypeTarget type = GetDeclaredType(context);
 
-            return new MockerTarget(type, MockerRole.Composite, type.Name, string.Empty);
+            return new MockerTarget(type, MockerRole.Composite, type.Name, string.Empty, GetLocation(context), IsDeclaredPartial(context), true, false);
         }
 
         /// <summary>
@@ -90,9 +119,40 @@ namespace GeneratorLibrary.Mocker
         public static MockerTarget FromImplementor(GeneratorAttributeSyntaxContext context, CancellationToken cancellationToken)
         {
             TypeTarget type = GetDeclaredType(context);
-            TypeTarget implemented = GetAttribute(context).GetTypeArgument(0);
+            INamedTypeSymbol implemented = GetAttribute(context).GetTypeSymbolArgument(0);
+            INamedTypeSymbol declared = context.TargetSymbol as INamedTypeSymbol;
 
-            return new MockerTarget(type, MockerRole.Implementor, type.Name, implemented.FullName);
+            bool implementsParent = implemented != null
+                && declared != null
+                && declared.AllInterfaces.Any(candidate => SymbolEqualityComparer.Default.Equals(candidate, implemented));
+
+            return new MockerTarget(type, MockerRole.Implementor, type.Name, TypeTarget.From(implemented).FullName, GetLocation(context), true, implementsParent, false);
+        }
+
+        /// <summary>
+        /// Reads a type published by another assembly through its generated assembly attribute.
+        /// </summary>
+        /// <param name="attribute">The published attribute, holding the role, the type, its name and its parent.</param>
+        /// <param name="target">The published type, marked as coming from outside this assembly.</param>
+        /// <returns>True when the attribute named a role this version understands.</returns>
+        public static bool TryFromExport(AttributeData attribute, out MockerTarget target)
+        {
+            target = default(MockerTarget);
+
+            MockerRole role;
+
+            if (!Enum.TryParse(attribute.GetStringArgument(0), false, out role))
+            {
+                return false;
+            }
+
+            TypeTarget type = attribute.GetTypeArgument(1);
+            string name = attribute.GetStringArgument(2);
+            TypeTarget parent = attribute.GetTypeArgument(3);
+
+            target = new MockerTarget(type, role, name.Length == 0 ? type.Name : name, parent.FullName, default(ScriptLocation), true, true, true);
+
+            return !type.IsEmpty;
         }
 
         private static MockerTarget FromNamedChild(GeneratorAttributeSyntaxContext context, MockerRole role)
@@ -102,7 +162,7 @@ namespace GeneratorLibrary.Mocker
             string name = attribute.GetStringArgument(0);
             TypeTarget parent = attribute.GetTypeArgument(1);
 
-            return new MockerTarget(type, role, name.Length == 0 ? type.Name : name, parent.FullName);
+            return new MockerTarget(type, role, name.Length == 0 ? type.Name : name, parent.FullName, GetLocation(context), IsDeclaredPartial(context), true, false);
         }
 
         private static TypeTarget GetDeclaredType(GeneratorAttributeSyntaxContext context)
@@ -115,12 +175,35 @@ namespace GeneratorLibrary.Mocker
             return context.Attributes.Length == 0 ? null : context.Attributes[0];
         }
 
+        private static ScriptLocation GetLocation(GeneratorAttributeSyntaxContext context)
+        {
+            AttributeData attribute = GetAttribute(context);
+
+            if (attribute != null && attribute.ApplicationSyntaxReference != null)
+            {
+                return ScriptLocation.From(attribute.ApplicationSyntaxReference);
+            }
+
+            return ScriptLocation.From(context.TargetNode);
+        }
+
+        private static bool IsDeclaredPartial(GeneratorAttributeSyntaxContext context)
+        {
+            TypeDeclarationSyntax declaration = context.TargetNode as TypeDeclarationSyntax;
+
+            return declaration != null && declaration.Modifiers.Any(SyntaxKind.PartialKeyword);
+        }
+
         public bool Equals(MockerTarget other)
         {
             return Type.Equals(other.Type)
                 && Role == other.Role
                 && string.Equals(Name, other.Name, StringComparison.Ordinal)
-                && string.Equals(ParentFullName, other.ParentFullName, StringComparison.Ordinal);
+                && string.Equals(ParentFullName, other.ParentFullName, StringComparison.Ordinal)
+                && Location.Equals(other.Location)
+                && IsPartial == other.IsPartial
+                && ImplementsParent == other.ImplementsParent
+                && IsExternal == other.IsExternal;
         }
 
         public override bool Equals(object obj)
@@ -136,6 +219,7 @@ namespace GeneratorLibrary.Mocker
                 hash = (hash * 397) ^ (int)Role;
                 hash = (hash * 397) ^ Name.GetHashCode();
                 hash = (hash * 397) ^ ParentFullName.GetHashCode();
+                hash = (hash * 397) ^ Location.GetHashCode();
                 return hash;
             }
         }

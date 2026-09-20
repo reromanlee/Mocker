@@ -10,8 +10,6 @@ namespace GeneratorLibrary.Mocker
     /// </summary>
     internal sealed class MockerTree
     {
-        private const int MaxDepth = 32;
-
         private readonly Dictionary<string, MockerTarget> _targetsByFullName;
 
         public MockerTree(ImmutableArray<MockerTarget> targets)
@@ -25,65 +23,66 @@ namespace GeneratorLibrary.Mocker
         }
 
         /// <summary>
-        /// Path the type is reached by, such as "Tools.Ads.Interstitial".
+        /// Looks up the type a target hangs off, which is what checking the pairing needs.
         /// </summary>
-        /// <param name="target">Type to resolve.</param>
-        /// <returns>The path, or an empty string when a parent is missing or the chain never reaches a composite.</returns>
-        public string GetPath(MockerTarget target)
+        /// <param name="target">Type whose parent is wanted.</param>
+        /// <param name="parent">The parent, when it carries a Mocker attribute.</param>
+        /// <returns>True when a parent was written and found.</returns>
+        public bool TryGetParent(MockerTarget target, out MockerTarget parent)
         {
-            List<string> segments;
+            parent = default(MockerTarget);
 
-            if (!TryWalkToRoot(target, out segments, out _))
-            {
-                return string.Empty;
-            }
-
-            segments.Reverse();
-
-            return string.Join(".", segments);
+            return target.HasParent && _targetsByFullName.TryGetValue(target.ParentFullName, out parent);
         }
 
         /// <summary>
-        /// Full name of the composite the type belongs to, which is how output is grouped per composite.
+        /// Follows a type up to the composite it belongs to.
         /// </summary>
         /// <param name="target">Type to resolve.</param>
-        /// <returns>The composite full name, or an empty string when the type is not under one.</returns>
-        public string GetRootFullName(MockerTarget target)
+        /// <param name="path">Path it is reached by, such as "Tools.Ads.Interstitial".</param>
+        /// <param name="rootFullName">Full name of the composite at the root.</param>
+        /// <returns>Whether the chain resolved, and what stopped it when it did not.</returns>
+        public MockerStatus Resolve(MockerTarget target, out string path, out string rootFullName)
         {
-            MockerTarget root;
+            path = string.Empty;
+            rootFullName = string.Empty;
 
-            if (!TryWalkToRoot(target, out _, out root))
-            {
-                return string.Empty;
-            }
-
-            return root.Type.FullName;
-        }
-
-        private bool TryWalkToRoot(MockerTarget target, out List<string> segments, out MockerTarget root)
-        {
-            segments = new List<string>();
-            root = target;
-
+            List<string> segments = new List<string>();
+            HashSet<string> visited = new HashSet<string>(StringComparer.Ordinal);
             MockerTarget current = target;
 
-            for (int depth = 0; depth < MaxDepth; depth++)
+            while (true)
             {
+                if (!visited.Add(current.Type.FullName))
+                {
+                    return MockerStatus.Cycle;
+                }
+
                 segments.Add(current.Name);
 
                 if (current.Role == MockerRole.Composite)
                 {
-                    root = current;
-                    return true;
+                    segments.Reverse();
+                    path = string.Join(".", segments);
+                    rootFullName = current.Type.FullName;
+
+                    return MockerStatus.Resolved;
                 }
 
-                if (!current.HasParent || !_targetsByFullName.TryGetValue(current.ParentFullName, out current))
+                if (!current.HasParent)
                 {
-                    return false;
+                    return MockerStatus.MissingParent;
                 }
-            }
 
-            return false;
+                MockerTarget parent;
+
+                if (!_targetsByFullName.TryGetValue(current.ParentFullName, out parent))
+                {
+                    return MockerStatus.UnknownParent;
+                }
+
+                current = parent;
+            }
         }
     }
 }
