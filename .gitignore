@@ -29,3 +29,5 @@ GeneratorLibrary/project.fragment.lock.json
 ## OS generated files
 */.DS_Store
 */Thumbs.db
+## Claude Code (local only)
+.claude/
