@@ -1,15 +1,29 @@
 ### Mocker for Unity
 
-> [!WARNING]
-> This is a work-in-progress Unity package.
+A Unity source generator that builds a service hub out of four attributes. Declare the shape you want, mark the classes that can fill it, pick one per slot — Mocker writes the API, the wiring and the lifecycle.
 
-Mocker generates a service hub from four attributes. You declare the shape you want, mark the classes that can fill it, and pick one per slot. Mocker writes the API, the wiring and the lifecycle.
+Useful when a project needs the same capability backed by different implementations: a different store per platform, a real backend against a local stub, a paid analytics vendor against a free one, or a build where half of it is simply switched off.
 
-- A nested API you reach through properties, generated from the shape you declared
-- An enum per slot listing every implementation Mocker can see, so selection is checked at compile time
-- Constructor injection with no reflection, no container lookups and no ordering to maintain
-- A do-nothing implementation for every slot you leave empty, so an absent service is silent rather than fatal
-- Twelve diagnostics that report mistakes against the attribute that caused them
+**A nested API, generated from the shape you declared.**
+`services.Player.Inventory.Items.Count` is a chain of real types with real IntelliSense. Reaching a service is a field read — under a nanosecond, no allocation, safe to call every frame.
+
+**Selection checked at compile time.**
+Each slot gets an enum listing every implementation Mocker can find. Pick one and it is verified when you build, not when you ship.
+
+**Constructor injection with nothing at runtime.**
+Dependencies are resolved while compiling and written out as literal `new` calls. No reflection, no container, no registration, no attributes to scan on startup. Declaration order does not matter, and a constructor loop is reported by name rather than overflowing a stack.
+
+**Empty slots still work.**
+Anything left unset gets a generated do-nothing implementation that answers every call and returns completed tasks, so a service that is not there is silent instead of fatal. It is `partial`, so you can give it behaviour when you want some.
+
+**Async initialization that overlaps.**
+Implementations declare their own awaitable type — `Task`, `UniTask` or `Awaitable`, whichever suits the platform. Independent services initialize concurrently; ones that depend on each other do not.
+
+**Deterministic disposal.**
+Reverse order, failures aggregated, initialization cancelled, every reference released.
+
+**Twelve diagnostics.**
+Every mistake is reported against the attribute that caused it, with a line to click. Nothing fails quietly.
 
 ### Quick start
 
@@ -357,7 +371,7 @@ What that means in practice:
 - A composite, its nodes and its components must be declared in the same assembly.
 - Composites never share component instances; pass shared objects through `Dependencies`.
 - Constructors that need each other cannot be built by anything, so they are reported rather than resolved.
-- A component whose member cannot be given a do-nothing answer gets no generated mock, and is reported as `MOCK011`; give it an implementor of its own.
+- A component member returning a custom awaitable class gets no generated mock, and is reported as `MOCK011`. `Task`, `Task<T>`, `ValueTask`, `UniTask`, `Awaitable` and `Awaitable<T>` are all handled, along with indexers, events, generics and `out` parameters; the gap is an awaitable reference type Mocker has no way to complete, since returning `null` would throw when awaited. Give that component an implementor of its own.
 - An implementor assembly excluded by platform drops its entries from the enum, so selection code referring to them needs the same `#if` that governs the assembly.
 
 ### Installation
