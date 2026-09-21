@@ -1,5 +1,7 @@
 ### Mocker for Unity
 
+<img src=".github/mocker-cover.svg" alt="Mocker for Unity" width="100%"/>
+
 A Unity source generator that builds a service hub out of four attributes. Declare the shape you want, mark the classes that can fill it, pick one per slot — Mocker writes the API, the wiring and the lifecycle.
 
 Useful when a project needs the same capability backed by different implementations: a different store per platform, a real backend against a local stub, a paid analytics vendor against a free one, or a build where half of it is simply switched off.

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" width="1200" height="600">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14141c" />
+      <stop offset="100%" stop-color="#1e1e2e" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4facfe" />
+      <stop offset="100%" stop-color="#00f2fe" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="600" fill="url(#bg)" />
+
+  <!-- Typography -->
+  <text x="120" y="240" font-family="Segoe UI, -apple-system, sans-serif" font-size="85" font-weight="bold" fill="#ffffff">Mocker</text>
+  <text x="125" y="310" font-family="Segoe UI, -apple-system, sans-serif" font-size="42" font-weight="300" fill="#a0aabf">for Unity</text>
+  <text x="125" y="400" font-family="Segoe UI, -apple-system, sans-serif" font-size="24" fill="#8892b0">A source generator for decoupled service hubs.</text>
+  <text x="125" y="440" font-family="Segoe UI, -apple-system, sans-serif" font-size="24" fill="#8892b0">Zero allocation. Compile-time verified. No reflection.</text>
+
+  <!-- Abstract Architecture Diagram -->
+  <g transform="translate(880, 100)">
+    <!-- Composite -->
+    <rect x="-100" y="0" width="200" height="50" rx="8" fill="#2d2d44" stroke="url(#accent)" stroke-width="2"/>
+    <text x="0" y="32" font-family="monospace" font-size="18" fill="#ffffff" text-anchor="middle">[Composite]</text>
+
+    <line x1="0" y1="50" x2="0" y2="100" stroke="#4facfe" stroke-width="2" stroke-dasharray="4"/>
+
+    <!-- Node -->
+    <rect x="-100" y="100" width="200" height="50" rx="8" fill="#2d2d44" stroke="#717c99" stroke-width="2"/>
+    <text x="0" y="132" font-family="monospace" font-size="18" fill="#ffffff" text-anchor="middle">[Node]</text>
+
+    <line x1="0" y1="150" x2="0" y2="200" stroke="#717c99" stroke-width="2"/>
+
+    <!-- Component -->
+    <rect x="-100" y="200" width="200" height="50" rx="8" fill="#2d2d44" stroke="#ff5e7e" stroke-width="2"/>
+    <text x="0" y="232" font-family="monospace" font-size="18" fill="#ffffff" text-anchor="middle">[Component]</text>
+
+    <!-- Branching to Implementors -->
+    <path d="M 0 250 L 0 280 L -100 280 L -100 310" fill="none" stroke="#ff5e7e" stroke-width="2"/>
+    <path d="M 0 250 L 0 280 L 100 280 L 100 310" fill="none" stroke="#ff5e7e" stroke-width="2"/>
+
+    <!-- Implementor 1 -->
+    <rect x="-170" y="310" width="140" height="40" rx="20" fill="#ff5e7e" />
+    <text x="-100" y="336" font-family="sans-serif" font-size="15" font-weight="bold" fill="#14141c" text-anchor="middle">Implementor A</text>
+
+    <!-- Implementor 2 -->
+    <rect x="30" y="310" width="140" height="40" rx="20" fill="#4facfe" />
+    <text x="100" y="336" font-family="sans-serif" font-size="15" font-weight="bold" fill="#14141c" text-anchor="middle">Implementor B</text>
+  </g>
+</svg>
