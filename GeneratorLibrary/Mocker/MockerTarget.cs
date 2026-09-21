@@ -17,7 +17,7 @@ namespace GeneratorLibrary.Mocker
         private readonly string _name;
         private readonly string _parentFullName;
 
-        public MockerTarget(TypeTarget type, MockerRole role, string name, string parentFullName, ScriptLocation location, bool isPartial, bool implementsParent, bool isExternal)
+        public MockerTarget(TypeTarget type, MockerRole role, string name, string parentFullName, ScriptLocation location, bool isPartial, bool implementsParent, bool isExternal, bool isAbstract, ImplementorDetails details)
         {
             Type = type;
             Role = role;
@@ -27,6 +27,8 @@ namespace GeneratorLibrary.Mocker
             IsPartial = isPartial;
             ImplementsParent = implementsParent;
             IsExternal = isExternal;
+            IsAbstract = isAbstract;
+            Details = details;
         }
 
         /// <summary>
@@ -62,6 +64,18 @@ namespace GeneratorLibrary.Mocker
         public bool IsExternal { get; }
 
         /// <summary>
+        /// Whether the type is declared abstract, which a composite must be so that the root can
+        /// generate the runnable subclass that knows the implementors.
+        /// </summary>
+        public bool IsAbstract { get; }
+
+        /// <summary>
+        /// For an implementor, what its constructor asks for and how it starts and stops.
+        /// Empty for the other roles.
+        /// </summary>
+        public ImplementorDetails Details { get; }
+
+        /// <summary>
         /// Name this is exposed under in the generated API. Nodes and components take it from their
         /// attribute, composites and implementors use their own type name.
         /// </summary>
@@ -94,7 +108,7 @@ namespace GeneratorLibrary.Mocker
         {
             TypeTarget type = GetDeclaredType(context);
 
-            return new MockerTarget(type, MockerRole.Composite, type.Name, string.Empty, GetLocation(context), IsDeclaredPartial(context), true, false);
+            return new MockerTarget(type, MockerRole.Composite, type.Name, string.Empty, GetLocation(context), IsDeclaredPartial(context), true, false, IsDeclaredAbstract(context), default(ImplementorDetails));
         }
 
         /// <summary>
@@ -126,7 +140,7 @@ namespace GeneratorLibrary.Mocker
                 && declared != null
                 && declared.AllInterfaces.Any(candidate => SymbolEqualityComparer.Default.Equals(candidate, implemented));
 
-            return new MockerTarget(type, MockerRole.Implementor, type.Name, TypeTarget.From(implemented).FullName, GetLocation(context), true, implementsParent, false);
+            return new MockerTarget(type, MockerRole.Implementor, type.Name, TypeTarget.From(implemented).FullName, GetLocation(context), true, implementsParent, false, false, ImplementorDetails.From(declared));
         }
 
         /// <summary>
@@ -146,11 +160,13 @@ namespace GeneratorLibrary.Mocker
                 return false;
             }
 
-            TypeTarget type = attribute.GetTypeArgument(1);
+            INamedTypeSymbol symbol = attribute.GetTypeSymbolArgument(1);
+            TypeTarget type = TypeTarget.From(symbol);
             string name = attribute.GetStringArgument(2);
             TypeTarget parent = attribute.GetTypeArgument(3);
+            ImplementorDetails details = role == MockerRole.Implementor ? ImplementorDetails.From(symbol) : default(ImplementorDetails);
 
-            target = new MockerTarget(type, role, name.Length == 0 ? type.Name : name, parent.FullName, default(ScriptLocation), true, true, true);
+            target = new MockerTarget(type, role, name.Length == 0 ? type.Name : name, parent.FullName, default(ScriptLocation), true, true, true, false, details);
 
             return !type.IsEmpty;
         }
@@ -162,7 +178,7 @@ namespace GeneratorLibrary.Mocker
             string name = attribute.GetStringArgument(0);
             TypeTarget parent = attribute.GetTypeArgument(1);
 
-            return new MockerTarget(type, role, name.Length == 0 ? type.Name : name, parent.FullName, GetLocation(context), IsDeclaredPartial(context), true, false);
+            return new MockerTarget(type, role, name.Length == 0 ? type.Name : name, parent.FullName, GetLocation(context), IsDeclaredPartial(context), true, false, IsDeclaredAbstract(context), default(ImplementorDetails));
         }
 
         private static TypeTarget GetDeclaredType(GeneratorAttributeSyntaxContext context)
@@ -187,6 +203,13 @@ namespace GeneratorLibrary.Mocker
             return ScriptLocation.From(context.TargetNode);
         }
 
+        private static bool IsDeclaredAbstract(GeneratorAttributeSyntaxContext context)
+        {
+            INamedTypeSymbol symbol = context.TargetSymbol as INamedTypeSymbol;
+
+            return symbol != null && symbol.IsAbstract;
+        }
+
         private static bool IsDeclaredPartial(GeneratorAttributeSyntaxContext context)
         {
             TypeDeclarationSyntax declaration = context.TargetNode as TypeDeclarationSyntax;
@@ -203,7 +226,9 @@ namespace GeneratorLibrary.Mocker
                 && Location.Equals(other.Location)
                 && IsPartial == other.IsPartial
                 && ImplementsParent == other.ImplementsParent
-                && IsExternal == other.IsExternal;
+                && IsExternal == other.IsExternal
+                && IsAbstract == other.IsAbstract
+                && Details.Equals(other.Details);
         }
 
         public override bool Equals(object obj)

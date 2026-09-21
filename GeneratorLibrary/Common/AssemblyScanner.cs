@@ -10,29 +10,29 @@ namespace GeneratorLibrary.Common
     public static class AssemblyScanner
     {
         /// <summary>
-        /// Whether the assembly being compiled carries the given assembly level attribute.
+        /// Finds an assembly level attribute on the assembly being compiled.
         /// </summary>
         /// <param name="compilation">Compilation to check.</param>
         /// <param name="attributeMetadataName">Full metadata name of the attribute to look for.</param>
-        /// <returns>True when this assembly is marked with it.</returns>
-        public static bool HasAssemblyAttribute(Compilation compilation, string attributeMetadataName)
+        /// <returns>The attribute with its arguments, or null when this assembly is not marked with it.</returns>
+        public static AttributeData FindAssemblyAttribute(Compilation compilation, string attributeMetadataName)
         {
             INamedTypeSymbol attributeType = compilation.GetTypeByMetadataName(attributeMetadataName);
 
             if (attributeType == null)
             {
-                return false;
+                return null;
             }
 
             foreach (AttributeData attribute in compilation.Assembly.GetAttributes())
             {
                 if (SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeType))
                 {
-                    return true;
+                    return attribute;
                 }
             }
 
-            return false;
+            return null;
         }
 
         /// <summary>

@@ -24,11 +24,42 @@ namespace GeneratorLibrary.Mocker
             foreach (MockerTarget target in local)
             {
                 ValidatePartial(context, target);
+                ValidateAbstract(context, target);
                 ValidateReservedName(context, target);
                 ValidateParent(context, target, tree);
             }
 
             ValidateNames(context, all, tree);
+        }
+
+        /// <summary>
+        /// Reports composites a root claims but cannot see, which would otherwise just generate nothing.
+        /// </summary>
+        /// <param name="context">Context the reports are sent to.</param>
+        /// <param name="imports">The root marker and the composites it claims.</param>
+        /// <param name="all">Everything known, declared here and published by referenced assemblies.</param>
+        public static void ValidateRoot(SourceProductionContext context, MockerImports imports, ImmutableArray<MockerTarget> all)
+        {
+            foreach (string claimed in imports.RootComposites)
+            {
+                if (!IsKnownComposite(claimed, all))
+                {
+                    context.Report(MockerDiagnostics.UnknownRootComposite, imports.RootLocation, claimed);
+                }
+            }
+        }
+
+        private static bool IsKnownComposite(string fullName, ImmutableArray<MockerTarget> all)
+        {
+            foreach (MockerTarget target in all)
+            {
+                if (target.Role == MockerRole.Composite && string.Equals(target.Type.FullName, fullName, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void ValidatePartial(SourceProductionContext context, MockerTarget target)
@@ -39,6 +70,16 @@ namespace GeneratorLibrary.Mocker
             }
 
             context.Report(MockerDiagnostics.NotPartial, target.Location, target.Role, target.Type.Name);
+        }
+
+        private static void ValidateAbstract(SourceProductionContext context, MockerTarget target)
+        {
+            if (target.Role != MockerRole.Composite || target.IsAbstract)
+            {
+                return;
+            }
+
+            context.Report(MockerDiagnostics.CompositeNotAbstract, target.Location, target.Type.Name);
         }
 
         private static void ValidateReservedName(SourceProductionContext context, MockerTarget target)

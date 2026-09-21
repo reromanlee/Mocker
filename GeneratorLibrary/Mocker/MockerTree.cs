@@ -11,14 +11,39 @@ namespace GeneratorLibrary.Mocker
     internal sealed class MockerTree
     {
         private readonly Dictionary<string, MockerTarget> _targetsByFullName;
+        private readonly Dictionary<string, List<MockerTarget>> _childrenByParentFullName;
 
         public MockerTree(ImmutableArray<MockerTarget> targets)
         {
             _targetsByFullName = new Dictionary<string, MockerTarget>(StringComparer.Ordinal);
+            _childrenByParentFullName = new Dictionary<string, List<MockerTarget>>(StringComparer.Ordinal);
 
             foreach (MockerTarget target in targets)
             {
                 _targetsByFullName[target.Type.FullName] = target;
+            }
+
+            foreach (MockerTarget target in targets)
+            {
+                if (!target.HasParent || target.Role == MockerRole.Implementor)
+                {
+                    continue;
+                }
+
+                List<MockerTarget> children;
+
+                if (!_childrenByParentFullName.TryGetValue(target.ParentFullName, out children))
+                {
+                    children = new List<MockerTarget>();
+                    _childrenByParentFullName[target.ParentFullName] = children;
+                }
+
+                children.Add(target);
+            }
+
+            foreach (List<MockerTarget> children in _childrenByParentFullName.Values)
+            {
+                children.Sort((left, right) => string.CompareOrdinal(left.Name, right.Name));
             }
         }
 
@@ -33,6 +58,23 @@ namespace GeneratorLibrary.Mocker
             parent = default(MockerTarget);
 
             return target.HasParent && _targetsByFullName.TryGetValue(target.ParentFullName, out parent);
+        }
+
+        /// <summary>
+        /// Everything that hangs directly off a type, which is what the generated properties are made from.
+        /// </summary>
+        /// <param name="parent">Composite or node whose children are wanted.</param>
+        /// <returns>Its children, ordered by name so the generated output does not shuffle between runs.</returns>
+        public List<MockerTarget> GetChildren(MockerTarget parent)
+        {
+            List<MockerTarget> children;
+
+            if (!_childrenByParentFullName.TryGetValue(parent.Type.FullName, out children))
+            {
+                return new List<MockerTarget>();
+            }
+
+            return children;
         }
 
         /// <summary>
