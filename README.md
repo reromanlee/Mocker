@@ -378,9 +378,50 @@ What that means in practice:
 
 ### Installation
 
-Add the package through the Unity package manager, or drop `UnityPackage` into your project. The generator ships as `Runtime/Plugins/GeneratorLibrary.dll` with the `RoslynAnalyzer` label and every platform excluded, which is how Unity recognises it as a source generator rather than a runtime dependency.
+Requires Unity 6000.0 or newer. The package is `com.reromanlee.mocker`, and it lives in the `UnityPackage` folder of this repository rather than at its root.
 
-Requires Unity 6000.0 or newer.
+**From the git URL.**
+Needs Git installed and on your `PATH`. In Unity, open **Window › Package Management › Package Manager**, press **+**, choose **Install package from git URL…** and enter:
+
+```
+https://github.com/reromanlee/Mocker.git?path=UnityPackage
+```
+
+That follows `main`. To pin a release, add its tag after a `#`:
+
+```
+https://github.com/reromanlee/Mocker.git?path=UnityPackage#1.0.0
+```
+
+Or add it to `Packages/manifest.json` directly:
+
+```json
+{
+  "dependencies": {
+    "com.reromanlee.mocker": "https://github.com/reromanlee/Mocker.git?path=UnityPackage#1.0.0"
+  }
+}
+```
+
+Unity locks a git package to the commit it resolved in `Packages/packages-lock.json`. To move to a newer release, change the tag.
+
+**From the release tarball.**
+Needs no Git. Download `com.reromanlee.mocker-<version>.tgz` from the [latest release](https://github.com/reromanlee/Mocker/releases/latest), then in the Package Manager press **+**, choose **Install package from tarball…** and select it.
+
+Unity does not copy the tarball, it records a path to it, so keep it somewhere that travels with the project. Putting it in the `Packages` folder and referencing it relative to that folder works on every machine:
+
+```json
+{
+  "dependencies": {
+    "com.reromanlee.mocker": "file:com.reromanlee.mocker-1.0.0.tgz"
+  }
+}
+```
+
+To update, replace the file with the newer tarball and change the name in the manifest to match.
+
+**How Unity picks up the generator.**
+The generator ships as `Runtime/Plugins/GeneratorLibrary.dll` with the `RoslynAnalyzer` label and every platform excluded, which is how Unity recognises it as a source generator rather than a runtime dependency. There is nothing to configure; once the package is in, the attributes are available under `using reromanlee.Mocker;`.
 
 ### License
 
