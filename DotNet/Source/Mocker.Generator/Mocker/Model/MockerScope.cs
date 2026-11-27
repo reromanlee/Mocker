@@ -117,7 +117,19 @@ namespace reromanlee.Mocker.Generator.Mocker
             string path = GetPath(target);
             int firstSeparator = path.IndexOf('.');
 
-            return firstSeparator < 0 ? "_choices" : "_choices." + path.Substring(firstSeparator + 1);
+            if (firstSeparator < 0)
+            {
+                return "_choices";
+            }
+
+            string[] segments = path.Substring(firstSeparator + 1).Split('.');
+
+            for (int index = 0; index < segments.Length; index++)
+            {
+                segments[index] = ScriptNames.Escape(segments[index]);
+            }
+
+            return "_choices." + string.Join(".", segments);
         }
 
         public string GetChoicesTypeName(MockerTarget branch)

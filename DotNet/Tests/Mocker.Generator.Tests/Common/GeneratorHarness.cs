@@ -173,7 +173,8 @@ namespace reromanlee.Mocker.Generator.Tests.Common
             string assemblyName,
             IEnumerable<string> sources,
             IEnumerable<MetadataReference> additionalReferences = null,
-            LanguageVersion languageVersion = LanguageVersion.CSharp9)
+            LanguageVersion languageVersion = LanguageVersion.CSharp9,
+            NullableContextOptions nullableContextOptions = NullableContextOptions.Disable)
         {
             CSharpParseOptions parseOptions = new CSharpParseOptions(languageVersion);
             List<SyntaxTree> trees = new List<SyntaxTree>();
@@ -194,7 +195,8 @@ namespace reromanlee.Mocker.Generator.Tests.Common
 
             CSharpCompilationOptions compilationOptions = new CSharpCompilationOptions(
                 OutputKind.DynamicallyLinkedLibrary,
-                optimizationLevel: OptimizationLevel.Release);
+                optimizationLevel: OptimizationLevel.Release,
+                nullableContextOptions: nullableContextOptions);
 
             return CSharpCompilation.Create(assemblyName, trees, references, compilationOptions);
         }
@@ -203,18 +205,20 @@ namespace reromanlee.Mocker.Generator.Tests.Common
             string assemblyName,
             string source,
             IEnumerable<MetadataReference> additionalReferences = null,
-            LanguageVersion languageVersion = LanguageVersion.CSharp9)
+            LanguageVersion languageVersion = LanguageVersion.CSharp9,
+            NullableContextOptions nullableContextOptions = NullableContextOptions.Disable)
         {
-            return Run(assemblyName, new[] { source }, additionalReferences, languageVersion);
+            return Run(assemblyName, new[] { source }, additionalReferences, languageVersion, nullableContextOptions);
         }
 
         public static GenerationResult Run(
             string assemblyName,
             IEnumerable<string> sources,
             IEnumerable<MetadataReference> additionalReferences = null,
-            LanguageVersion languageVersion = LanguageVersion.CSharp9)
+            LanguageVersion languageVersion = LanguageVersion.CSharp9,
+            NullableContextOptions nullableContextOptions = NullableContextOptions.Disable)
         {
-            CSharpCompilation compilation = CreateCompilation(assemblyName, sources, additionalReferences, languageVersion);
+            CSharpCompilation compilation = CreateCompilation(assemblyName, sources, additionalReferences, languageVersion, nullableContextOptions);
             MockerGenerator generator = new MockerGenerator();
             GeneratorDriver driver = CSharpGeneratorDriver.Create(
                 generators: new[] { generator.AsSourceGenerator() },
