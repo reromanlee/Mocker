@@ -1,0 +1,2 @@
+# Roslyn IIncrementalGenerator assemblies must target netstandard2.0 for Unity 2022.3 through Unity 6+ compiler hosts.
+DotNet/Source/Mocker.Generator/Mocker.Generator.csproj:dotnet-framework

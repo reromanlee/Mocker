@@ -1,10 +1,18 @@
-## Target outputs (Compilation artifacts)
-GeneratorLibrary/[Bb]in/
-GeneratorLibrary/[Oo]bj/
+## OS generated files
+*/.DS_Store
+*/Thumbs.db
 
-## IDE - Rider
-.idea/
-*.sln.iml
+## Local agent state
+.claude/
+.agents/
+
+## NuGet packages
+*.nupkg
+
+## .NET build output
+DotNet/**/bin/
+DotNet/**/obj/
+DotNet/**/TestResults/
 
 ## IDE - Visual Studio
 .vs/
@@ -19,15 +27,25 @@ GeneratorLibrary/[Oo]bj/
 !.vscode/tasks.json
 !.vscode/launch.json
 
-## NuGet Packages
-*.nupkg
-## If using an isolated packages folder
-GeneratorLibrary/packages/
-GeneratorLibrary/project.lock.json
-GeneratorLibrary/project.fragment.lock.json
+## IDE - Rider
+.idea/
+*.sln.iml
 
-## OS generated files
-*/.DS_Store
-*/Thumbs.db
-## Claude Code (local only)
-.claude/
+## UnityProject generated files
+/UnityProject/Build/
+/UnityProject/Builds/
+/UnityProject/Library/
+/UnityProject/Logs/
+/UnityProject/MemoryCaptures/
+/UnityProject/Obj/
+/UnityProject/obj/
+/UnityProject/Packages/packages-lock.json
+/UnityProject/ProjectSettings/
+/UnityProject/Temp/
+/UnityProject/UserSettings/
+/UnityProject/*.csproj
+/UnityProject/*.sln
+/UnityProject/*.slnx
+/UnityProject/.vsconfig
+/UnityProject/Assets/Samples/
+/UnityProject/Assets/Samples.meta

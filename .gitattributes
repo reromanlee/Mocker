@@ -1,0 +1,53 @@
+* text=auto eol=lf
+
+*.cs text eol=lf
+*.csproj text eol=lf
+*.props text eol=lf
+*.sln text eol=lf
+*.slnx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.xml text eol=lf
+*.svg text eol=lf
+*.jslib text eol=lf
+*.shader text eol=lf
+*.hlsl text eol=lf
+*.cginc text eol=lf
+*.compute text eol=lf
+*.uxml text eol=lf
+*.uss text eol=lf
+*.tss text eol=lf
+
+*.meta text eol=lf
+*.asmdef text eol=lf
+*.asmref text eol=lf
+*.unity text merge=unityyamlmerge eol=lf
+*.prefab text merge=unityyamlmerge eol=lf
+*.asset text merge=unityyamlmerge eol=lf
+*.mat text merge=unityyamlmerge eol=lf
+*.controller text merge=unityyamlmerge eol=lf
+*.anim text merge=unityyamlmerge eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.dll binary
+*.pdb binary
+*.so binary
+*.dylib binary
+*.a binary
+*.aar binary
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.tga binary
+*.exr binary
+*.pdf binary
+*.tgz binary
+*.zip binary
+*.unitypackage binary
