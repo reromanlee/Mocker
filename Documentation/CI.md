@@ -4,14 +4,14 @@ Four workflows in `.github/workflows` validate the Roslyn source generator acros
 
 | Workflow | File | Automatic triggers | Manual trigger | Timeout ceiling | Storage per run |
 | --- | --- | --- | --- | --- | --- |
-| `DotNet` | `dotnet.yml` | Every push and pull request (ignoring docs and images) | `workflow_dispatch` | 20 min per cell + 10 min hygiene | 0 B on pass (`.trx` on failure, 7d) |
+| `DotNet` | `dotnet.yml` | Pull requests and pushes to `main` (ignoring docs and images) | `workflow_dispatch` | 20 min per cell + 10 min hygiene | 0 B on pass (`.trx` on failure, 7d) |
 | `Continuous integration` | `continuous-integration.yml` | Pull requests and pushes to `main` (ignoring docs and images) | `workflow_dispatch` | 5 min gate + `Unity` | 41 B `passed-files-*` marker (7d) |
 | `Unity` | `unity.yml` | Called via `workflow_call` from `continuous-integration.yml` | Via parent workflow | 60 min tests, 90 min builds, 20 min smoke | 1d smoke players, 7d test logs, `Library` cache |
 | `Cleanup` | `cleanup.yml` | Nightly at `04:00 UTC` | `workflow_dispatch` (`olderThanHours`) | 10 min | Reclaims stale caches and artifacts |
 
 ### DotNet and package-hygiene matrix (`dotnet.yml`)
 
-Runs on `ubuntu-latest`, `windows-latest`, and `macos-latest` on every push, pull request, and manual dispatch across two Roslyn host versions:
+Runs on `ubuntu-latest`, `windows-latest`, and `macos-latest` on pull requests, pushes to `main`, and manual dispatch across two Roslyn host versions:
 
 1. `Microsoft.CodeAnalysis.CSharp` `4.3.0`: matches the Roslyn `4.3.1` compiler bundled in Unity `2022.3` LTS, `6000.0` LTS, and `6000.3`, and verifies committed [reromanlee.Mocker.Generator.dll](../UnityPackage/Runtime/Plugins/reromanlee.Mocker.Generator.dll) byte parity via `-p:UpdateUnityPackage=true` + `git diff --exit-code`.
 2. `Microsoft.CodeAnalysis.CSharp` `4.10.0`: matches the Roslyn `4.10.0` compiler bundled in Unity `6000.5` and `6000.6+`, validating forward binary compatibility of the `netstandard2.0` generator across all `31` diagnostic, edge-case, nullable-enabled, incremental-cache, lifecycle, allocation, and packaging tests.

@@ -176,7 +176,10 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: smoke-${{ matrix.targetPlatform }}-${{ matrix.unityVersion }}
-          path: build/${{ matrix.targetPlatform }}
+          path: |
+            build/${{ matrix.targetPlatform }}
+            !build/${{ matrix.targetPlatform }}/*_BackUpThisFolder_*
+            !build/${{ matrix.targetPlatform }}/*_BackUpThisFolder_*/**
           retention-days: 1
 
   run-linux-il2cpp:
@@ -192,19 +195,39 @@ jobs:
           - 6000.6.7f1
     steps:
       - name: Download built Linux IL2CPP player
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: smoke-StandaloneLinux64-${{ matrix.unityVersion }}
           path: player
 
+      - name: Install headless Linux runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth libgl1 libgl1-mesa-dri
+
       - name: Run headless IL2CPP High-stripping smoke test
         run: |
           set -euo pipefail
-          chmod -R u+x player
-          exe="$(find player -maxdepth 2 -type f -executable ! -name '*.so' | head -n 1)"
-          timeout 120 "$exe" -batchmode -nographics -mocker-smoke-quit -logFile player.log
-          cat player.log
-          grep -F "Mocker GettingStarted ready: saves=profile:checkpoint, bus=SFX, volume=0" player.log
+          exe="$PWD/player/StandaloneLinux64.x86_64"
+          log_file="$PWD/player.log"
+          test -f "$exe"
+          chmod u+x "$exe"
+          find "$PWD/player" -maxdepth 1 -type f -name '*.so*' -exec chmod u+x {} +
+          echo "Launching $exe"
+          status=0
+          xvfb-run --auto-servernum --server-args="-screen 0 640x480x24" \
+            timeout 120 "$exe" -batchmode -nographics -mocker-smoke-quit -logFile "$log_file" || status=$?
+          if [ -f "$log_file" ]; then
+            cat "$log_file"
+          else
+            echo "::warning::player.log was not created."
+          fi
+          if [ "$status" -ne 0 ]; then
+            ldd "$exe" "$PWD/player/UnityPlayer.so" "$PWD/player/GameAssembly.so" || true
+            echo "::error::Linux IL2CPP player exited with code $status."
+            exit "$status"
+          fi
+          grep -F "Mocker GettingStarted ready: saves=profile:checkpoint, bus=SFX, volume=0" "$log_file"
 
   run-webgl:
     name: WebGL smoke
@@ -219,7 +242,7 @@ jobs:
           - 6000.6.7f1
     steps:
       - name: Download built WebGL player
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: smoke-WebGL-${{ matrix.unityVersion }}
           path: webgl-build
