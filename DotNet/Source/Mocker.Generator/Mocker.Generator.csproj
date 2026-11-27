@@ -1,0 +1,134 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>reromanlee.Mocker.Generator</AssemblyName>
+    <RootNamespace>reromanlee.Mocker.Generator</RootNamespace>
+    <Version>2.0.0</Version>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- RS2008 requests analyzer release tracking files intended for NuGet analyzer packages; this DLL ships inside a UPM package. -->
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <RepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../../'))</RepositoryRoot>
+    <UnityPluginFolder>$(RepositoryRoot)UnityPackage/Runtime/Plugins/</UnityPluginFolder>
+    <UpdateUnityPackage Condition="'$(UpdateUnityPackage)' == '' AND '$(Configuration)' == 'Release' AND '$(CI)' != 'true'">true</UpdateUnityPackage>
+    <DebugType>embedded</DebugType>
+    <PathMap>$(RepositoryRoot)=/Mocker/</PathMap>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <EnableSourceLink>false</EnableSourceLink>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.3">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <UsingTask TaskName="ComputeSourceFingerprint" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Files ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <Root ParameterType="System.String" Required="true" />
+      <Fingerprint ParameterType="System.String" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.Collections.Generic" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Security.Cryptography" />
+      <Using Namespace="System.Text" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        string root = Path.GetFullPath(Root);
+        SortedDictionary<string, string> sources = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        foreach (ITaskItem item in Files)
+        {
+            string path = Path.GetFullPath(item.GetMetadata("FullPath"));
+            string relative = path.Substring(root.Length).Replace('\\', '/').TrimStart('/');
+            sources[relative] = File.ReadAllText(path).Replace("\r\n", "\n").Replace('\r', '\n');
+        }
+        using (SHA256 sha = SHA256.Create())
+        {
+            StringBuilder all = new StringBuilder();
+            foreach (KeyValuePair<string, string> source in sources)
+            {
+                all.Append(source.Key).Append('\n').Append(source.Value).Append('\n');
+            }
+            byte[] hash = sha.ComputeHash(new UTF8Encoding(false).GetBytes(all.ToString()));
+            StringBuilder hex = new StringBuilder();
+            foreach (byte value in hash)
+            {
+                hex.Append(value.ToString("x2"));
+            }
+            Fingerprint = hex.ToString();
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="AddSourceFingerprint" BeforeTargets="GetAssemblyAttributes">
+    <ItemGroup>
+      <FingerprintedSource Include="@(Compile)" Exclude="$(BaseIntermediateOutputPath)**" />
+      <FingerprintedSource Include="$(MSBuildProjectFullPath);$(RepositoryRoot)DotNet/Directory.Build.props" />
+    </ItemGroup>
+    <ComputeSourceFingerprint Files="@(FingerprintedSource)" Root="$(RepositoryRoot)">
+      <Output TaskParameter="Fingerprint" PropertyName="SourceFingerprint" />
+    </ComputeSourceFingerprint>
+    <ItemGroup>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>SourceFingerprint</_Parameter1>
+        <_Parameter2>$(SourceFingerprint)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
+
+  <UsingTask TaskName="HoldsSourceFingerprint" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Assembly ParameterType="System.String" Required="true" />
+      <Fingerprint ParameterType="System.String" />
+      <Holds ParameterType="System.Boolean" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        byte[] name = Encoding.UTF8.GetBytes("SourceFingerprint");
+        byte[] value = Encoding.UTF8.GetBytes(Fingerprint);
+        byte[] attribute = new byte[2 + name.Length + value.Length];
+        attribute[0] = (byte)name.Length;
+        name.CopyTo(attribute, 1);
+        attribute[1 + name.Length] = (byte)value.Length;
+        value.CopyTo(attribute, 2 + name.Length);
+
+        Holds = false;
+        if (value.Length == 64 && File.Exists(Assembly))
+        {
+            byte[] assembly = File.ReadAllBytes(Assembly);
+            for (int start = 0; start <= assembly.Length - attribute.Length && Holds == false; start++)
+            {
+                int index = 0;
+                while (index < attribute.Length && assembly[start + index] == attribute[index])
+                {
+                    index++;
+                }
+                Holds = index == attribute.Length;
+            }
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="CopyToUnityPackage" AfterTargets="Build" Condition="'$(UpdateUnityPackage)' == 'true'">
+    <HoldsSourceFingerprint Assembly="$(UnityPluginFolder)$(TargetFileName)" Fingerprint="$(SourceFingerprint)">
+      <Output TaskParameter="Holds" PropertyName="UnityPackageIsCurrent" />
+    </HoldsSourceFingerprint>
+    <Copy Condition="'$(UnityPackageIsCurrent)' != 'true'" SourceFiles="$(TargetPath)" DestinationFolder="$(UnityPluginFolder)" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

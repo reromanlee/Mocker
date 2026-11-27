@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Source/Mocker.Generator/Mocker.Generator.csproj" />
+  <Project Path="Tests/Mocker.Generator.Tests/Mocker.Generator.Tests.csproj" />
+</Solution>
