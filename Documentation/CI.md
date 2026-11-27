@@ -1,27 +1,35 @@
 ### Continuous integration in detail
 
-Four workflows in `.github/workflows` validate the Roslyn source generator across operating systems, run Unity EditMode/PlayMode tests and sample player builds across Unity `2022.3` LTS and Unity `6`, and sweep stale caches and artifacts nightly.
+Four workflows in `.github/workflows` validate the Roslyn source generator across operating systems and Roslyn compiler versions, enforce UPM package integrity, run cross-platform Unity EditMode/PlayMode tests plus `ManagedStrippingLevel.High` player builds and runtime smoke probes across Unity `2022.3` LTS and Unity `6`, and sweep stale caches and artifacts nightly.
 
 | Workflow | File | Automatic triggers | Manual trigger | Timeout ceiling | Storage per run |
 | --- | --- | --- | --- | --- | --- |
-| `DotNet` | `dotnet.yml` | Every push and pull request (ignoring docs and images) | `workflow_dispatch` | 15 min per OS | 0 B on pass (`.trx` on failure, 7d) |
+| `DotNet` | `dotnet.yml` | Every push and pull request (ignoring docs and images) | `workflow_dispatch` | 20 min per cell + 10 min hygiene | 0 B on pass (`.trx` on failure, 7d) |
 | `Continuous integration` | `continuous-integration.yml` | Pull requests and pushes to `main` (ignoring docs and images) | `workflow_dispatch` | 5 min gate + `Unity` | 41 B `passed-files-*` marker (7d) |
-| `Unity` | `unity.yml` | Called via `workflow_call` from `continuous-integration.yml` | Via parent workflow | 60 min tests, 90 min builds | Test logs (7d) + `Library` cache |
+| `Unity` | `unity.yml` | Called via `workflow_call` from `continuous-integration.yml` | Via parent workflow | 60 min tests, 90 min builds, 20 min smoke | 1d smoke players, 7d test logs, `Library` cache |
 | `Cleanup` | `cleanup.yml` | Nightly at `04:00 UTC` | `workflow_dispatch` (`olderThanHours`) | 10 min | Reclaims stale caches and artifacts |
 
-### DotNet fast lane (`dotnet.yml`)
+### DotNet and package-hygiene matrix (`dotnet.yml`)
 
-Runs `dotnet build DotNet/Mocker.slnx --configuration Release` on `ubuntu-latest` and `windows-latest` on pushes, adding `macos-latest` on pull requests and manual runs. Every job rebuilds with `-p:UpdateUnityPackage=true` and runs `git diff --exit-code --stat -- UnityPackage/Runtime/Plugins` so any drift between `DotNet/Source/Mocker.Generator/` and `UnityPackage/Runtime/Plugins/reromanlee.Mocker.Generator.dll` fails CI immediately before running the NUnit `3.14.0` test suite.
+Runs on `ubuntu-latest`, `windows-latest`, and `macos-latest` on every push, pull request, and manual dispatch across two Roslyn host versions:
 
-### Tree-SHA-gated Unity suite (`continuous-integration.yml` and `unity.yml`)
+1. `Microsoft.CodeAnalysis.CSharp` `4.3.0`: matches the Roslyn `4.3.1` compiler bundled in Unity `2022.3` LTS, `6000.0` LTS, and `6000.3`, and verifies committed [reromanlee.Mocker.Generator.dll](../UnityPackage/Runtime/Plugins/reromanlee.Mocker.Generator.dll) byte parity via `-p:UpdateUnityPackage=true` + `git diff --exit-code`.
+2. `Microsoft.CodeAnalysis.CSharp` `4.10.0`: matches the Roslyn `4.10.0` compiler bundled in Unity `6000.5` and `6000.6+`, validating forward binary compatibility of the `netstandard2.0` generator across all `31` diagnostic, edge-case, nullable-enabled, incremental-cache, lifecycle, allocation, and packaging tests.
+3. `Package hygiene` (`ubuntu-latest`): verifies `LICENSE.md` byte parity, `UnityPackage/package.json` schema (`"unity": "2022.3"` and registered `Samples~/GettingStarted`), `.meta` 32-hex GUID uniqueness across `UnityPackage/` and `Samples~/`, zero C# 10+ syntax, LF line endings, and `npm pack --dry-run`.
 
-The `gate` job checks two conditions before launching Unity runners:
+### Tree-SHA-gated Unity matrix and live player probes (`continuous-integration.yml` and `unity.yml`)
 
-1. License guard: when `UNITY_LICENSE` is not configured (such as on forks), the job logs a `::notice::` and skips `unity.yml` cleanly.
-2. Tree-SHA deduplication: on `push` to `main`, if a `passed-files-<tree>` artifact already exists from an earlier pull request with the identical Git tree SHA, Unity jobs are skipped without re-billing runner minutes.
+The `gate` job skips Unity runners cleanly when either condition holds:
 
-When executed, `unity.yml` runs EditMode and PlayMode tests on `2022.3.62f3` and `6000.6.7f1`, enforces zero `warning CS` diagnostics in `UnityPackage`, and builds `Samples~/GettingStarted` with `ManagedStrippingLevel.High` for `WebGL`, `Android`, and `StandaloneLinux64`.
+1. `UNITY_LICENSE` secret is absent (logs `::notice::` so forks and unlicensed mirrors stay green while `dotnet.yml` still runs the full 6-cell OS x Roslyn matrix and package hygiene check).
+2. On `push` to `main`, an unexpired `passed-files-<tree>` artifact already proves the identical Git tree passed on a pull request.
+
+When `UNITY_LICENSE` is present, `unity.yml` runs:
+
+1. EditMode and PlayMode tests across `2022.3.62f3` (LTS baseline), `6000.0.85f1` (Unity 6.0 LTS), and `6000.6.7f1` (Unity 6.6+), failing on any `warning CS` in `UnityPackage`.
+2. Fourteen `ManagedStrippingLevel.High` sample builds covering `WebGL` (IL2CPP), `Android` (IL2CPP ARM64), `iOS` (IL2CPP), `StandaloneLinux64` (IL2CPP and Mono2x), `StandaloneOSX` (Mono2x), and `StandaloneWindows64` (Mono2x).
+3. Live headless runtime smoke execution of the compiled `2022.3.62f3` and `6000.6.7f1` `StandaloneLinux64` IL2CPP players and `WebGL` IL2CPP players (via Playwright Chromium), asserting the sample hub initializes asynchronously, runs interface and abstract class mocks, and logs `Mocker GettingStarted ready: saves=profile:checkpoint, bus=SFX, volume=0` with zero runtime errors.
 
 ### Nightly storage cleanup (`cleanup.yml`)
 
-Before deleting anything, `cleanup.yml` queries active workflow runs and exits untouched whenever any other run is queued or in progress. When idle, it removes caches and artifacts belonging to deleted branches and entries older than `olderThanHours` (`24` by default) while preserving `passed-files-*` markers and `test-results-*` failure logs for their 7-day retention.
+Queries active workflow runs before deleting anything and exits untouched while another run is active. When idle, sweeps deleted-branch caches/artifacts and items untouched for `olderThanHours` (`24` by default) while preserving `passed-files-*` and failing `test-results-*` artifacts for their 7-day retention.

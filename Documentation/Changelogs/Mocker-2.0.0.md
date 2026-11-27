@@ -14,5 +14,5 @@
 2. Roll back and dispose already-constructed `IDisposable` implementors if a later dependency or constructor fails during composite creation, avoiding leaked `CancellationTokenSource` and native handles.
 3. Make `Dispose()` atomically idempotent via `Interlocked.Exchange`, prevent in-flight `InitializeAsync` completion from overwriting `Disposed` state, and guarantee full teardown even when `OnBeforeDispose` or an implementor throws.
 4. Release `_dependencies`, `_resolving`, and completed `_init*` task references immediately after construction and initialization instead of pinning them until `Dispose()`.
-5. Fix Roslyn incremental cache invalidation in `ProviderExtensions.CollectAll` via structural `EquatableArray<T>` comparison and emit deterministic LF line endings in generated scripts.
-6. Fix `where T : unmanaged` (`CS0449`), `where T : notnull`, `init` property accessors, `ref`-return diagnostics, and diamond interface member deduplication (`CS0111`) in generated mocks.
+5. Fix Roslyn incremental cache invalidation in `ProviderExtensions.CollectAll` via structural `EquatableArray<T>` comparison and emit deterministic LF line endings plus `#nullable disable` headers so `#nullable enable` consumer assemblies compile with zero warnings.
+6. Fix `where T : unmanaged` (`CS0449`), `where T : notnull`, `init` property accessors, `ref`-return diagnostics, diamond interface member deduplication (`CS0111`), and C# keyword segment escaping in `MockerScope.GetChoicesAccessor`.

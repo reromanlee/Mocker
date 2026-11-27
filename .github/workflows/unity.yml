@@ -23,6 +23,7 @@ jobs:
       matrix:
         unityVersion:
           - 2022.3.62f3
+          - 6000.0.85f1
           - 6000.6.7f1
     steps:
       - name: Free disk space for the Unity image
@@ -87,14 +88,60 @@ jobs:
         include:
           - unityVersion: 2022.3.62f3
             targetPlatform: WebGL
+            backend: IL2CPP
+            uploadSmoke: true
           - unityVersion: 2022.3.62f3
             targetPlatform: Android
+            backend: IL2CPP
+            uploadSmoke: false
+          - unityVersion: 2022.3.62f3
+            targetPlatform: StandaloneLinux64
+            backend: IL2CPP
+            uploadSmoke: true
+          - unityVersion: 2022.3.62f3
+            targetPlatform: StandaloneLinux64
+            backend: Mono2x
+            uploadSmoke: false
+          - unityVersion: 2022.3.62f3
+            targetPlatform: StandaloneWindows64
+            backend: Mono2x
+            uploadSmoke: false
+          - unityVersion: 6000.0.85f1
+            targetPlatform: WebGL
+            backend: IL2CPP
+            uploadSmoke: false
+          - unityVersion: 6000.0.85f1
+            targetPlatform: Android
+            backend: IL2CPP
+            uploadSmoke: false
+          - unityVersion: 6000.0.85f1
+            targetPlatform: StandaloneLinux64
+            backend: IL2CPP
+            uploadSmoke: false
           - unityVersion: 6000.6.7f1
             targetPlatform: WebGL
+            backend: IL2CPP
+            uploadSmoke: true
           - unityVersion: 6000.6.7f1
             targetPlatform: Android
+            backend: IL2CPP
+            uploadSmoke: false
+          - unityVersion: 6000.6.7f1
+            targetPlatform: iOS
+            backend: IL2CPP
+            uploadSmoke: false
           - unityVersion: 6000.6.7f1
             targetPlatform: StandaloneLinux64
+            backend: IL2CPP
+            uploadSmoke: true
+          - unityVersion: 6000.6.7f1
+            targetPlatform: StandaloneOSX
+            backend: Mono2x
+            uploadSmoke: false
+          - unityVersion: 6000.6.7f1
+            targetPlatform: StandaloneWindows64
+            backend: Mono2x
+            uploadSmoke: false
     steps:
       - name: Free disk space for the Unity image
         uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
@@ -121,4 +168,109 @@ jobs:
           targetPlatform: ${{ matrix.targetPlatform }}
           projectPath: UnityProject
           buildMethod: reromanlee.Mocker.ContinuousIntegration.PlayerBuild.Build
+          customParameters: -scriptingBackend ${{ matrix.backend }}
           versioning: None
+
+      - name: Upload smoke player artifact
+        if: matrix.uploadSmoke
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: smoke-${{ matrix.targetPlatform }}-${{ matrix.unityVersion }}
+          path: build/${{ matrix.targetPlatform }}
+          retention-days: 1
+
+  run-linux-il2cpp:
+    name: Linux IL2CPP smoke
+    needs: builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        unityVersion:
+          - 2022.3.62f3
+          - 6000.6.7f1
+    steps:
+      - name: Download built Linux IL2CPP player
+        uses: actions/download-artifact@v4
+        with:
+          name: smoke-StandaloneLinux64-${{ matrix.unityVersion }}
+          path: player
+
+      - name: Run headless IL2CPP High-stripping smoke test
+        run: |
+          set -euo pipefail
+          chmod -R u+x player
+          exe="$(find player -maxdepth 2 -type f -executable ! -name '*.so' | head -n 1)"
+          timeout 120 "$exe" -batchmode -nographics -mocker-smoke-quit -logFile player.log
+          cat player.log
+          grep -F "Mocker GettingStarted ready: saves=profile:checkpoint, bus=SFX, volume=0" player.log
+
+  run-webgl:
+    name: WebGL smoke
+    needs: builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        unityVersion:
+          - 2022.3.62f3
+          - 6000.6.7f1
+    steps:
+      - name: Download built WebGL player
+        uses: actions/download-artifact@v4
+        with:
+          name: smoke-WebGL-${{ matrix.unityVersion }}
+          path: webgl-build
+
+      - name: Install Playwright Chromium
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+
+      - name: Execute WebGL IL2CPP High-stripping player in Chromium
+        run: |
+          python3 - <<'PY'
+          import functools
+          import http.server
+          import os
+          import socketserver
+          import threading
+          import time
+          from playwright.sync_api import sync_playwright
+
+          root = os.path.abspath("webgl-build")
+          for dirpath, _, filenames in os.walk(root):
+              if "index.html" in filenames:
+                  root = dirpath
+                  break
+
+          handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=root)
+          httpd = socketserver.TCPServer(("127.0.0.1", 0), handler)
+          port = httpd.server_address[1]
+          thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+          thread.start()
+
+          expected = "Mocker GettingStarted ready: saves=profile:checkpoint, bus=SFX, volume=0"
+          logs = []
+          errors = []
+
+          try:
+              with sync_playwright() as p:
+                  browser = p.chromium.launch(headless=True, args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
+                  page = browser.new_page()
+                  page.on("console", lambda msg: logs.append(msg.text))
+                  page.on("pageerror", lambda err: errors.append(str(err)))
+                  page.goto(f"http://127.0.0.1:{port}/index.html", wait_until="domcontentloaded")
+                  deadline = time.monotonic() + 90.0
+                  while time.monotonic() < deadline and not any(expected in line for line in logs) and not errors:
+                      page.wait_for_timeout(500)
+                  browser.close()
+          finally:
+              httpd.shutdown()
+
+          print("\n".join(logs))
+          assert not errors, f"WebGL page errors: {errors}"
+          assert any(expected in line for line in logs), f"Expected log line not observed: {expected}"
+          PY

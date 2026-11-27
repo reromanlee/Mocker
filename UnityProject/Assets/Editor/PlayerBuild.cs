@@ -27,6 +27,17 @@ namespace reromanlee.Mocker.ContinuousIntegration
             BuildTargetGroup targetGroup = BuildPipeline.GetBuildTargetGroup(target);
             NamedBuildTarget namedTarget = NamedBuildTarget.FromBuildTargetGroup(targetGroup);
 
+            string requestedBackend = ReadOptionalCommandLineValue("-scriptingBackend");
+
+            if (string.Equals(requestedBackend, "IL2CPP", StringComparison.OrdinalIgnoreCase))
+            {
+                PlayerSettings.SetScriptingBackend(namedTarget, ScriptingImplementation.IL2CPP);
+            }
+            else if (string.Equals(requestedBackend, "Mono2x", StringComparison.OrdinalIgnoreCase))
+            {
+                PlayerSettings.SetScriptingBackend(namedTarget, ScriptingImplementation.Mono2x);
+            }
+
             if (target == BuildTarget.Android)
             {
                 PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
@@ -59,12 +70,24 @@ namespace reromanlee.Mocker.ContinuousIntegration
 
         private static string ReadCommandLineValue(string flag)
         {
+            string value = ReadOptionalCommandLineValue(flag);
+
+            if (value == null)
+            {
+                throw new ArgumentException($"Missing command-line flag: {flag}");
+            }
+
+            return value;
+        }
+
+        private static string ReadOptionalCommandLineValue(string flag)
+        {
             string[] arguments = Environment.GetCommandLineArgs();
             int index = Array.IndexOf(arguments, flag);
 
             if (index < 0 || index >= arguments.Length - 1)
             {
-                throw new ArgumentException($"Missing command-line flag: {flag}");
+                return null;
             }
 
             return arguments[index + 1];
