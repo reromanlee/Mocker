@@ -1,0 +1,16 @@
+{
+    "name": "reromanlee.Mocker.Samples.GettingStarted",
+    "rootNamespace": "reromanlee.Mocker.Samples.GettingStarted",
+    "references": [
+        "reromanlee.Mocker"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
