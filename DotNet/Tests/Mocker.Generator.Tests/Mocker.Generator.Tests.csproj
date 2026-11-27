@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>reromanlee.Mocker.Generator.Tests</AssemblyName>
+    <RootNamespace>reromanlee.Mocker.Generator.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <TestRoslynVersion Condition="'$(TestRoslynVersion)' == ''">4.3.0</TestRoslynVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="$(TestRoslynVersion)" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Source\Mocker.Generator\Mocker.Generator.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\..\UnityPackage\Runtime\Attributes\*.cs" Link="Runtime\Attributes\%(Filename)%(Extension)" />
+    <Compile Include="..\..\..\UnityPackage\Runtime\Contracts\*.cs" Link="Runtime\Contracts\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

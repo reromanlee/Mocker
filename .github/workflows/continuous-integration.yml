@@ -1,0 +1,87 @@
+name: Continuous integration
+
+on:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - '**.jpg'
+      - '**.png'
+      - '**.svg'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '**.jpg'
+      - '**.png'
+      - '**.svg'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+  actions: read
+
+jobs:
+  gate:
+    name: Check for an earlier pass
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should-skip: ${{ steps.lookup.outputs.should-skip }}
+    steps:
+      - name: Check Unity license and prior tree pass
+        id: lookup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TREE: ${{ github.event.head_commit.tree_id }}
+          HAS_LICENSE: ${{ secrets.UNITY_LICENSE != '' }}
+        run: |
+          if [ "$HAS_LICENSE" != "true" ]; then
+            echo "::notice::UNITY_LICENSE secret is not configured; skipping Unity test and build jobs."
+            echo "should-skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$GITHUB_EVENT_NAME" != "push" ] || [ -z "$TREE" ]; then
+            exit 0
+          fi
+          query='[.artifacts[] | select((.expired | not) and .workflow_run.head_repository_id == .workflow_run.repository_id)] | first | .workflow_run.id // empty'
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=passed-files-$TREE" --jq "$query") || run=""
+          if [ -n "$run" ]; then
+            echo "::notice::Run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$run already passed on these exact files, so this run skips Unity jobs."
+            echo "should-skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  unity:
+    name: Unity
+    needs: gate
+    if: needs.gate.outputs.should-skip != 'true'
+    uses: ./.github/workflows/unity.yml
+    secrets: inherit
+
+  passed:
+    name: Record this pass
+    needs: unity
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - name: Find the tree of the tested commit
+        id: tree
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tree=$(gh api "repos/$GITHUB_REPOSITORY/git/commits/$GITHUB_SHA" --jq .tree.sha)
+          echo "$tree" > passed-files.txt
+          echo "tree=$tree" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the marker
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: passed-files-${{ steps.tree.outputs.tree }}
+          path: passed-files.txt
+          retention-days: 7

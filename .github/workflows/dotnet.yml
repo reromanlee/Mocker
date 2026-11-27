@@ -1,0 +1,146 @@
+name: DotNet
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '**.jpg'
+      - '**.png'
+      - '**.svg'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - '**.jpg'
+      - '**.png'
+      - '**.svg'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dotnet-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        roslyn:
+          - 4.3.0
+          - 4.10.0
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build generator and test suite
+        run: dotnet build DotNet/Mocker.slnx --configuration Release -p:TestRoslynVersion=${{ matrix.roslyn }}
+
+      - name: Verify committed generator DLL matches source
+        if: matrix.roslyn == '4.3.0'
+        shell: bash
+        run: |
+          dotnet build DotNet/Source/Mocker.Generator/Mocker.Generator.csproj --configuration Release -p:UpdateUnityPackage=true
+          git diff --exit-code --stat -- UnityPackage/Runtime/Plugins
+
+      - name: Run NUnit suite
+        run: dotnet test DotNet/Mocker.slnx --configuration Release --no-build --logger trx --logger "console;verbosity=normal" --results-directory TestResults
+
+      - name: Keep test results
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results-${{ matrix.os }}-roslyn-${{ matrix.roslyn }}
+          path: TestResults
+          retention-days: 7
+
+  package-hygiene:
+    name: Package hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Verify UPM manifest, license parity, C# 9.0 syntax, and meta GUID integrity
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+
+          with open("LICENSE.md", "rb") as root_f, open("UnityPackage/LICENSE.md", "rb") as pkg_f:
+              assert root_f.read() == pkg_f.read(), "UnityPackage/LICENSE.md diverged from root LICENSE.md"
+
+          with open("UnityPackage/package.json", "r", encoding="utf-8") as f:
+              pkg = json.load(f)
+
+          assert pkg["name"] == "com.reromanlee.mocker", pkg["name"]
+          assert pkg["unity"] == "2022.3", pkg["unity"]
+          assert pkg["description"].strip(), "description must not be empty"
+          assert any(s["path"] == "Samples~/GettingStarted" for s in pkg.get("samples", [])), "GettingStarted sample not registered"
+
+          guid_re = re.compile(r"^guid:\s*([0-9a-f]{32})\s*$", re.MULTILINE)
+          ns_re = re.compile(r"^\s*namespace\s+[A-Za-z_][A-Za-z0-9_.]*\s*;\s*(?://.*)?$", re.MULTILINE)
+          gu_re = re.compile(r"^\s*global\s+using\s+", re.MULTILINE)
+          guids = {}
+
+          def check_dir(directory, is_samples_root=False):
+              entries = sorted(os.listdir(directory))
+              entry_set = set(entries)
+              for entry in entries:
+                  full = os.path.join(directory, entry)
+                  if entry.startswith("."):
+                      continue
+                  if entry.endswith(".meta"):
+                      target = entry[:-5]
+                      assert target in entry_set, f"Orphan meta: {full}"
+                      assert not target.endswith("~"), f"Tilde folder meta forbidden: {full}"
+                      text = open(full, "r", encoding="utf-8").read()
+                      m = guid_re.search(text)
+                      assert m, f"Invalid GUID in {full}"
+                      guid = m.group(1)
+                      assert guid not in guids, f"Duplicate GUID {guid}: {full} vs {guids[guid]}"
+                      guids[guid] = full
+                      continue
+                  if os.path.isdir(full) and entry.endswith("~"):
+                      if entry == "Samples~" and os.path.abspath(directory) == os.path.abspath("UnityPackage"):
+                          check_dir(full, is_samples_root=True)
+                      continue
+                  if is_samples_root:
+                      if os.path.isdir(full):
+                          check_dir(full, is_samples_root=False)
+                      continue
+                  assert f"{entry}.meta" in entry_set, f"Missing meta: {full}"
+                  if os.path.isdir(full):
+                      check_dir(full, is_samples_root=False)
+                  elif entry.endswith(".cs"):
+                      raw = open(full, "rb").read()
+                      assert b"\r" not in raw, f"CRLF detected in {full}"
+                      src = raw.decode("utf-8")
+                      assert not ns_re.search(src), f"C# 10 file-scoped namespace in {full}"
+                      assert not gu_re.search(src), f"C# 10 global using in {full}"
+
+          check_dir("UnityPackage")
+          print(f"Verified {len(guids)} unique .meta GUIDs and C# 9.0 syntax cleanly.")
+          PY
+
+      - name: Verify UPM tarball packing
+        working-directory: UnityPackage
+        run: npm pack --dry-run
