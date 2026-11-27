@@ -1,0 +1,92 @@
+name: Cleanup
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      olderThanHours:
+        description: How many hours a cache or artifact on an existing branch may sit unused before deletion; 0 deletes all at once.
+        required: false
+        default: '24'
+
+concurrency:
+  group: cleanup
+  cancel-in-progress: true
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    name: Clean up storage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Delete stale caches and artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OLDER_THAN_HOURS: ${{ inputs.olderThanHours || '24' }}
+        run: |
+          set -euo pipefail
+
+          active="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100" | jq -r --argjson runId "$GITHUB_RUN_ID" '
+            [.workflow_runs[] | select(.id != $runId and .status != "completed") | "\(.name) (\(.status), #\(.id))"] | join(", ")
+          ')"
+          if [ -n "$active" ]; then
+            echo "Skipping cleanup while another workflow run is active: $active."
+            exit 0
+          fi
+
+          hours="${OLDER_THAN_HOURS:-24}"
+          if ! [[ "$hours" =~ ^[0-9]+$ ]]; then
+            echo "olderThanHours must be a non-negative whole number, got '$hours'." >&2
+            exit 2
+          fi
+          cutoff="$(date -u -d "$hours hours ago" +"%Y-%m-%dT%H:%M:%S")"
+          branches="$(gh api "repos/$GITHUB_REPOSITORY/branches?per_page=100" --paginate --jq '.[].name' | jq -R -s 'split("\n") | map(select(length > 0))')"
+
+          caches=0
+          while IFS=$'\t' read -r id key ref touched; do
+            [ -z "$id" ] && continue
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/caches/$id" > /dev/null
+            echo "Deleted cache $id ($key on $ref, last used $touched)."
+            caches=$((caches + 1))
+          done < <(gh api "repos/$GITHUB_REPOSITORY/actions/caches?per_page=100" --paginate | jq -r \
+            --arg cutoff "$cutoff" \
+            --argjson branches "$branches" '
+              .actions_caches[]
+              | (.last_accessed_at // .created_at) as $touched
+              | .ref as $ref
+              | ($ref | sub("^refs/heads/"; "")) as $branch
+              | select(($ref != "refs/heads/" + $branch) or (($branches | index($branch)) == null) or ($touched[:19] <= $cutoff))
+              | "\(.id)\t\(.key)\t\($ref)\t\($touched)"
+            ')
+
+          artifacts=0
+          while IFS=$'\t' read -r id name branch created; do
+            [ -z "$id" ] && continue
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id" > /dev/null
+            echo "Deleted artifact $id ($name on $branch, created $created)."
+            artifacts=$((artifacts + 1))
+          done < <(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" --paginate | jq -r \
+            --arg cutoff "$cutoff" \
+            --argjson branches "$branches" \
+            --argjson hours "$hours" '
+              .artifacts[]
+              | select(.expired == false)
+              | (.workflow_run.head_branch // "") as $branch
+              | select(
+                  (($branches | index($branch)) == null)
+                  or ($hours == 0)
+                  or (
+                    (.name | startswith("test-results-") | not)
+                    and (.name | startswith("passed-files-") | not)
+                    and (.created_at[:19] <= $cutoff)
+                  )
+                )
+              | "\(.id)\t\(.name)\t\($branch)\t\(.created_at)"
+            ')
+
+          echo "Deleted $caches cache(s) and $artifacts artifact(s)."

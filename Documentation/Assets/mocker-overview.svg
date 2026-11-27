@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" role="img">
+  <title>Mocker for Unity Architecture Overview</title>
+  <desc>Three-column left-to-right overview showing Mocker attribute declarations feeding a compile-time Roslyn 4.3.0 incremental source generator that emits a typed zero-allocation service hub, partial auto-mocks, and deterministic async lifecycle wiring.</desc>
+
+  <defs>
+    <pattern id="dot-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="12" cy="12" r="1" fill="#E2E8F0" />
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#475569" />
+    </marker>
+    <style>
+      .sans { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+      .mono { font-family: 'JetBrains Mono', 'Cascadia Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; }
+      .title { font-size: 28px; font-weight: 700; fill: #0F172A; }
+      .subtitle { font-size: 14px; font-weight: 400; fill: #475569; }
+      .lane { font-size: 12px; font-weight: 600; fill: #64748B; letter-spacing: 0.8px; }
+      .card-title { font-size: 15.5px; font-weight: 600; fill: #0F172A; }
+      .card-sub { font-size: 12.5px; font-weight: 400; fill: #475569; }
+      .pill-sky { font-size: 12px; font-weight: 600; fill: #1D4ED8; }
+      .pill-indigo { font-size: 12px; font-weight: 600; fill: #4338CA; }
+      .pill-emerald { font-size: 12px; font-weight: 600; fill: #047857; }
+      .pill-amber { font-size: 12px; font-weight: 600; fill: #B45309; }
+      .badge-neutral { font-size: 12px; font-weight: 600; fill: #475569; letter-spacing: 0.6px; }
+      .footer-text { font-size: 12.5px; font-weight: 500; fill: #475569; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="720" rx="12" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1" />
+  <rect x="0" y="0" width="1280" height="720" rx="12" fill="url(#dot-grid)" />
+
+  <text x="640" y="64" text-anchor="middle" class="sans title">Mocker for Unity</text>
+  <text x="640" y="92" text-anchor="middle" class="sans subtitle">Compile-time Roslyn source generator for typed service hubs, partial auto-mocks, and deterministic lifecycles</text>
+
+  <text x="188" y="138" text-anchor="middle" class="mono lane">01 / DECLARE ATTRIBUTES</text>
+  <text x="1056" y="138" text-anchor="middle" class="mono lane">03 / GENERATED RUNTIME</text>
+
+  <rect x="384" y="144" width="432" height="440" rx="12" fill="#F1F5F9" fill-opacity="0.8" stroke="#94A3B8" stroke-width="1.25" stroke-dasharray="6 4" />
+  <rect x="444" y="132" width="312" height="24" rx="12" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1.25" />
+  <text x="600" y="148" text-anchor="middle" class="mono badge-neutral">02 / ROSLYN COMPILE-TIME ENGINE</text>
+
+  <path d="M 328 214 L 412 214" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+  <path d="M 328 358 C 364 358, 364 234, 412 234" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+  <path d="M 328 502 C 372 502, 372 254, 412 254" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <path d="M 784 484 L 828 484 Q 836 484 836 476 L 836 222 Q 836 214 844 214 L 876 214" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+  <path d="M 784 508 L 844 508 Q 852 508 852 500 L 852 366 Q 852 358 860 358 L 876 358" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+  <path d="M 784 532 L 876 532" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="48" y="156" width="280" height="116" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+  <text x="188" y="186" text-anchor="middle" class="sans card-title">Composite and Nodes</text>
+  <text x="188" y="208" text-anchor="middle" class="sans card-sub">Abstract root and nested branches</text>
+  <rect x="68" y="224" width="240" height="32" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1" />
+  <text x="188" y="245" text-anchor="middle" class="mono pill-sky">[Composite] + [Node]</text>
+
+  <rect x="48" y="300" width="280" height="116" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+  <text x="188" y="330" text-anchor="middle" class="sans card-title">Swappable Components</text>
+  <text x="188" y="352" text-anchor="middle" class="sans card-sub">Partial interface or abstract class</text>
+  <rect x="68" y="368" width="240" height="32" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1" />
+  <text x="188" y="389" text-anchor="middle" class="mono pill-sky">[Component("Saves", ...)]</text>
+
+  <rect x="48" y="444" width="280" height="116" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+  <text x="188" y="474" text-anchor="middle" class="sans card-title">Providers and Root</text>
+  <text x="188" y="496" text-anchor="middle" class="sans card-sub">Implementors across assemblies</text>
+  <rect x="68" y="512" width="240" height="32" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1" />
+  <text x="188" y="533" text-anchor="middle" class="mono pill-sky">[Implementor] + [MockerRoot]</text>
+
+  <rect x="416" y="176" width="368" height="100" rx="8" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.5" />
+  <text x="600" y="208" text-anchor="middle" class="sans card-title">Incremental Discovery and Exports</text>
+  <text x="600" y="232" text-anchor="middle" class="sans card-sub">Attribute providers + cross-assembly [MockerExport]</text>
+  <text x="600" y="256" text-anchor="middle" class="mono pill-indigo">Roslyn 4.3.0 | Unity 2022.3 - 6.6+</text>
+
+  <line x1="600" y1="276" x2="600" y2="312" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="416" y="316" width="368" height="100" rx="8" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.5" />
+  <text x="600" y="348" text-anchor="middle" class="sans card-title">Graph Validation and Diagnostics</text>
+  <text x="600" y="372" text-anchor="middle" class="sans card-sub">Parent links, contracts, cycles, and constructors</text>
+  <text x="600" y="396" text-anchor="middle" class="mono pill-indigo">MOCK001 - MOCK015 on exact lines</text>
+
+  <line x1="600" y1="416" x2="600" y2="452" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="416" y="456" width="368" height="104" rx="8" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.5" />
+  <text x="600" y="486" text-anchor="middle" class="sans card-title">Deterministic Source Emission</text>
+  <text x="600" y="508" text-anchor="middle" class="sans card-sub">Literal new() wiring with zero runtime reflection</text>
+  <rect x="432" y="520" width="104" height="28" rx="6" fill="#E0E7FF" stroke="#6366F1" stroke-width="1" />
+  <text x="484" y="538" text-anchor="middle" class="mono pill-indigo">API + Mocks</text>
+  <rect x="548" y="520" width="104" height="28" rx="6" fill="#E0E7FF" stroke="#6366F1" stroke-width="1" />
+  <text x="600" y="538" text-anchor="middle" class="mono pill-indigo">Enums</text>
+  <rect x="664" y="520" width="104" height="28" rx="6" fill="#E0E7FF" stroke="#6366F1" stroke-width="1" />
+  <text x="716" y="538" text-anchor="middle" class="mono pill-indigo">Wiring</text>
+
+  <rect x="880" y="156" width="352" height="116" rx="8" fill="#ECFDF5" stroke="#10B981" stroke-width="1.5" />
+  <text x="1056" y="186" text-anchor="middle" class="sans card-title">Typed Hub and Choices API</text>
+  <text x="1056" y="208" text-anchor="middle" class="sans card-sub">Field-read chain with node disposal guards</text>
+  <rect x="900" y="224" width="312" height="32" rx="6" fill="#D1FAE5" stroke="#10B981" stroke-width="1" />
+  <text x="1056" y="245" text-anchor="middle" class="mono pill-emerald">hub.Player.Saves | &lt; 1 ns, 0 B</text>
+
+  <rect x="880" y="300" width="352" height="116" rx="8" fill="#FFFBEB" stroke="#F59E0B" stroke-width="1.5" />
+  <text x="1056" y="330" text-anchor="middle" class="sans card-title">Partial Auto-Mocks (None)</text>
+  <text x="1056" y="352" text-anchor="middle" class="sans card-sub">No-op stubs + abstract base logic + overrides</text>
+  <rect x="900" y="368" width="312" height="32" rx="6" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1" />
+  <text x="1056" y="389" text-anchor="middle" class="mono pill-amber">Task / ValueTask / UniTask / Awaitable</text>
+
+  <rect x="880" y="444" width="352" height="116" rx="8" fill="#ECFDF5" stroke="#10B981" stroke-width="1.5" />
+  <text x="1056" y="474" text-anchor="middle" class="sans card-title">Overlapped Init and Teardown</text>
+  <text x="1056" y="496" text-anchor="middle" class="sans card-sub">Rollback creation, cancel siblings, reverse dispose</text>
+  <rect x="900" y="512" width="312" height="32" rx="6" fill="#D1FAE5" stroke="#10B981" stroke-width="1" />
+  <text x="1056" y="533" text-anchor="middle" class="mono pill-emerald">WebGL IL2CPP High | 0 B GC drift</text>
+
+  <rect x="48" y="616" width="1184" height="52" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.25" />
+  <text x="640" y="647" text-anchor="middle" class="mono footer-text">Multi-Assembly DAG: API Assembly -&gt; Implementor Assemblies -&gt; Root Assembly  |  Zero Runtime Container or Reflection</text>
+</svg>

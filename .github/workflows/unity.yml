@@ -1,0 +1,124 @@
+name: Unity
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+  UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+  UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+  UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        unityVersion:
+          - 2022.3.62f3
+          - 6000.6.7f1
+    steps:
+      - name: Free disk space for the Unity image
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          large-packages: false
+
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set the Unity version of the project
+        env:
+          UNITY_VERSION: ${{ matrix.unityVersion }}
+        run: |
+          mkdir -p UnityProject/ProjectSettings UnityProject/Assets
+          printf 'm_EditorVersion: %s\n' "$UNITY_VERSION" > UnityProject/ProjectSettings/ProjectVersion.txt
+
+      - name: Restore the Library folder
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: UnityProject/Library
+          key: Library-tests-${{ matrix.unityVersion }}-${{ hashFiles('UnityPackage/**', 'UnityProject/**') }}
+          restore-keys: Library-tests-${{ matrix.unityVersion }}-
+
+      - name: Run EditMode and PlayMode tests
+        uses: game-ci/unity-test-runner@32e57712352b500e17974b245a6dce9e11a73213 # v4.4.0
+        env:
+          GAME_CI_COVERAGE_ENABLED: false
+        with:
+          unityVersion: ${{ matrix.unityVersion }}
+          cliVersion: v0.1.69
+          projectPath: UnityProject
+          testMode: all
+          githubToken: ${{ github.token }}
+          checkName: Test results on ${{ matrix.unityVersion }}
+
+      - name: Check that the package compiles without warnings
+        if: always()
+        run: |
+          warnings=$(grep -hs "warning CS" artifacts/*.log | grep -e "UnityPackage" | sort -u || true)
+          if [ -n "$warnings" ]; then
+            echo "$warnings"
+            echo "::error::The package compiled with warnings."
+            exit 1
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results-${{ matrix.unityVersion }}
+          path: artifacts
+          retention-days: 7
+
+  builds:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - unityVersion: 2022.3.62f3
+            targetPlatform: WebGL
+          - unityVersion: 2022.3.62f3
+            targetPlatform: Android
+          - unityVersion: 6000.6.7f1
+            targetPlatform: WebGL
+          - unityVersion: 6000.6.7f1
+            targetPlatform: Android
+          - unityVersion: 6000.6.7f1
+            targetPlatform: StandaloneLinux64
+    steps:
+      - name: Free disk space for the Unity image
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          large-packages: false
+
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set the Unity version of the project
+        env:
+          UNITY_VERSION: ${{ matrix.unityVersion }}
+        run: |
+          mkdir -p UnityProject/ProjectSettings UnityProject/Assets
+          printf 'm_EditorVersion: %s\n' "$UNITY_VERSION" > UnityProject/ProjectSettings/ProjectVersion.txt
+
+      - name: Add package samples to UnityProject
+        run: cp -r UnityPackage/Samples~ UnityProject/Assets/Samples
+
+      - name: Build sample player with High managed stripping
+        uses: game-ci/unity-builder@adaf7cd8f42fd48fbbf2d4f5f67ca30d87f819f1 # v5.0.1
+        with:
+          unityVersion: ${{ matrix.unityVersion }}
+          targetPlatform: ${{ matrix.targetPlatform }}
+          projectPath: UnityProject
+          buildMethod: reromanlee.Mocker.ContinuousIntegration.PlayerBuild.Build
+          versioning: None
