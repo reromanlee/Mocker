@@ -1,17 +1,33 @@
 {
   "name": "com.reromanlee.mocker",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "displayName": "Mocker",
-  "description": "",
-  "unity": "6000.0",
+  "description": "Compile-time Roslyn source generator for Unity that builds nested, zero-allocation service composites, constructor DI wiring, partial auto-mocks, overlapped async initialization, and deterministic reverse disposal.",
+  "unity": "2022.3",
   "license": "MIT",
+  "licensesUrl": "https://github.com/reromanlee/Mocker/blob/main/LICENSE.md",
   "documentationUrl": "https://github.com/reromanlee/Mocker#readme",
   "changelogUrl": "https://github.com/reromanlee/Mocker/blob/main/CHANGELOG.md",
-  "keywords": [],
-  "licensesUrl": "https://github.com/reromanlee/Mocker/blob/main/LICENSE.md",
+  "keywords": [
+    "mocker",
+    "source-generator",
+    "roslyn",
+    "dependency-injection",
+    "service-hub",
+    "architecture",
+    "mocking",
+    "unity"
+  ],
   "author": {
     "name": "Roman Likhadievski",
     "url": "https://github.com/reromanlee",
     "email": "contact@reromanlee.com"
-  }
+  },
+  "samples": [
+    {
+      "displayName": "Getting Started",
+      "description": "Self-contained scene exercising a multi-component composite, interface and abstract class components, IAsyncInitializable<Task>, a None mock slot, Dependencies registration, and deterministic disposal.",
+      "path": "Samples~/GettingStarted"
+    }
+  ]
 }

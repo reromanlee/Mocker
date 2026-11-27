@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 
 namespace reromanlee.Mocker
 {
     /// <summary>
-    /// Publishes one Mocker type so that assemblies referencing this one can find it by reading a single
-    /// attribute list instead of scanning every type. Written by the generator, never by hand.
+    /// Emitted by the source generator to publish a Mocker symbol on its declaring assembly so
+    /// downstream assemblies discover cross-assembly graphs without scanning every type.
     /// </summary>
     [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true, Inherited = false)]
     public sealed class MockerExportAttribute : Attribute
